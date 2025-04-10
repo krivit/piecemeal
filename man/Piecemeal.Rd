@@ -25,32 +25,93 @@ outdir <- file.path(tempdir(), "piecemeal_demo")
 runner <- Piecemeal$new(outdir)
 runner$reset(FALSE) # Reset, just in case.
 
+# A function of x and y that returns their product and a random
+# number between 0 and 1. It also happens to crash if the sum of
+# the product and the hundredths digit of the random number is
+# divisible by 4, with an error message that depends on the
+# remainder of dividing it by 8. It also relies on an external
+# constant a = 8 that is defined in the function's environment and
+# uses the package 'rlang'.
+a <- 8
+f <- function(x, y) {
+  p <- x*y
+  u <- runif(1)
+
+  errcond <- p + floor(u * 100) \%\% 10 + a
+  if(errcond \%\% 4 == 0) stop("condition ", errcond \%\% 8, call. = FALSE)
+
+  # rlang::dbl
+  dbl(p = p, u = u)
+}
+
 runner$ # Set up the following simulation study:
 # a socket cluster with 2 nodes;
   cluster(2)$
-# a factorial design with x = 1, 5, 25 and y = 1, 3, 9, 27;
-  factorial(x = 5^(0:2), y = 3^(0:3))$
-# with 2 replications per combination of x and y
-  nrep(2)$
-# calling a function of x and y, returning their product and a random number between 0 and 1;
-  worker(function(x, y) c(prod = x*y, u = runif(1)))$
+# a factorial design with x = 1, 2 and y = 1, 3, 9, 27;
+  factorial(x = 2^(0:1), y = 3^(0:3))$
+# with 3 replications per combination of x and y
+  nrep(3)$
+# calling a function of x and y;
+  worker(f)$
 # and using one level of directory splitting.
   options(split = 1)
 
-# Run this setup; note the invisible output.
-head(runner$run())
-# Running again, already done.
-head(runner$run())
+# What do we still need to run? (First 2 shown.)
+head(runner$todo(), 2)
 
-# Collate into a data frame.
-(out <- runner$collate())
-
-runner$reset(FALSE) # Reset, just in case.
-
-# We can also run this without a cluster; this could be useful in debugging.
-runner$cluster(NULL)
+# Run this setup.
 runner$run()
-identical(out, runner$collate())
+
+# Looks like all configurations failed, because the worker nodes
+# can't find variable a. Let's export it to worker nodes and try again.
+runner$export_vars("a")
+runner$run()
+
+# We have new errors. Most of the nodes complain that we haven't
+# loaded the rlang package. Let's fix that.
+runner$setup({library(rlang)})
+runner$run()
+
+# Here's what the individual run files look like:
+list.files(outdir, recursive = TRUE)
+
+# If we run again, successful runs will be skipped.
+runner$run()
+
+# Data frame of successful runs. If your configuration or output
+# data structure is more complex, you may need to use custom
+# functions for collate().
+runner$collate()
+
+# The remaining errors are more subtle. Which configurations did
+# not succeed? (First 2 shown.)
+head(runner$todo(), 2)
+
+# Alternatively, we can have the unsuccessful runs saved and inspect them.
+runner$options(error = "save")
+runner$run()
+head(runner$erred(), 2)
+
+# In fact, we can easily test-run the function to reproduce the error:
+\dontrun{
+errcfg <- runner$erred()[[1]]
+debugonce(f) # to step through it
+set.seed(errcfg$seed)
+do.call(f, errcfg$treatment)
+}
+
+# Let's say that based on the above, we were able to fix the bug.
+f <- function(x, y) {
+  p <- x*y
+  u <- runif(1)
+  dbl(p = p, u = u)
+}
+
+# Replace the worker function, clear the erred outputs, and run again.
+runner$worker(f)$clean()$run()
+
+# Now, we have all 24 combinations!
+runner$collate()
 
 }
 \section{Methods}{
@@ -58,7 +119,7 @@ identical(out, runner$collate())
 \itemize{
 \item \href{#method-Piecemeal-new}{\code{Piecemeal$new()}}
 \item \href{#method-Piecemeal-cluster}{\code{Piecemeal$cluster()}}
-\item \href{#method-Piecemeal-send_vars}{\code{Piecemeal$send_vars()}}
+\item \href{#method-Piecemeal-export_vars}{\code{Piecemeal$export_vars()}}
 \item \href{#method-Piecemeal-setup}{\code{Piecemeal$setup()}}
 \item \href{#method-Piecemeal-worker}{\code{Piecemeal$worker()}}
 \item \href{#method-Piecemeal-treatments}{\code{Piecemeal$treatments()}}
@@ -69,6 +130,8 @@ identical(out, runner$collate())
 \item \href{#method-Piecemeal-todo}{\code{Piecemeal$todo()}}
 \item \href{#method-Piecemeal-collate}{\code{Piecemeal$collate()}}
 \item \href{#method-Piecemeal-reset}{\code{Piecemeal$reset()}}
+\item \href{#method-Piecemeal-clean}{\code{Piecemeal$clean()}}
+\item \href{#method-Piecemeal-erred}{\code{Piecemeal$erred()}}
 \item \href{#method-Piecemeal-options}{\code{Piecemeal$options()}}
 \item \href{#method-Piecemeal-clone}{\code{Piecemeal$clone()}}
 }
@@ -108,12 +171,12 @@ Cluster settings for the piecemeal run.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Piecemeal-send_vars"></a>}}
-\if{latex}{\out{\hypertarget{method-Piecemeal-send_vars}{}}}
-\subsection{Method \code{send_vars()}}{
+\if{html}{\out{<a id="method-Piecemeal-export_vars"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-export_vars}{}}}
+\subsection{Method \code{export_vars()}}{
 Specify variables to be copied from the manager node to the worker nodes' global environment.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$send_vars(varlist, .add = TRUE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$export_vars(varlist, .add = TRUE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -264,7 +327,7 @@ List the configurations still to be run.
 }
 
 \subsection{Returns}{
-A list of lists with arguments to the worker functions.
+A list of lists with arguments to the worker functions; also an attribute \code{"done"} giving the number of configurations skipped because they are already done.
 }
 }
 \if{html}{\out{<hr>}}
@@ -308,6 +371,26 @@ Clear the simulation results so far.
 }
 \if{html}{\out{</div>}}
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-clean"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-clean}{}}}
+\subsection{Method \code{clean()}}{
+Delete the result files for which the worker function failed.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$clean()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-erred"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-erred}{}}}
+\subsection{Method \code{erred()}}{
+List the configurations for which the worker function failed.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$erred()}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-options"></a>}}

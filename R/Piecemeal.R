@@ -16,34 +16,95 @@
 #' # New simulation study.
 #' runner <- Piecemeal$new(outdir)
 #' runner$reset(FALSE) # Reset, just in case.
+#'
+#' # A function of x and y that returns their product and a random
+#' # number between 0 and 1. It also happens to crash if the sum of
+#' # the product and the hundredths digit of the random number is
+#' # divisible by 4, with an error message that depends on the
+#' # remainder of dividing it by 8. It also relies on an external
+#' # constant a = 8 that is defined in the function's environment and
+#' # uses the package 'rlang'.
+#' a <- 8
+#' f <- function(x, y) {
+#'   p <- x*y
+#'   u <- runif(1)
+#'
+#'   errcond <- p + floor(u * 100) %% 10 + a
+#'   if(errcond %% 4 == 0) stop("condition ", errcond %% 8, call. = FALSE)
+#'
+#'   # rlang::dbl
+#'   dbl(p = p, u = u)
+#' }
 #' 
 #' runner$ # Set up the following simulation study:
 #' # a socket cluster with 2 nodes;
 #'   cluster(2)$
-#' # a factorial design with x = 1, 5, 25 and y = 1, 3, 9, 27;
-#'   factorial(x = 5^(0:2), y = 3^(0:3))$
-#' # with 2 replications per combination of x and y
-#'   nrep(2)$
-#' # calling a function of x and y, returning their product and a random number between 0 and 1;
-#'   worker(function(x, y) c(prod = x*y, u = runif(1)))$
+#' # a factorial design with x = 1, 2 and y = 1, 3, 9, 27;
+#'   factorial(x = 2^(0:1), y = 3^(0:3))$
+#' # with 3 replications per combination of x and y
+#'   nrep(3)$
+#' # calling a function of x and y;
+#'   worker(f)$
 #' # and using one level of directory splitting.
 #'   options(split = 1)
 #'
-#' # Run this setup; note the invisible output.
-#' head(runner$run())
-#' # Running again, already done.
-#' head(runner$run())
+#' # What do we still need to run? (First 2 shown.)
+#' head(runner$todo(), 2)
 #'
-#' # Collate into a data frame.
-#' (out <- runner$collate())
-#'
-#' runner$reset(FALSE) # Reset, just in case.
-#'
-#' # We can also run this without a cluster; this could be useful in debugging.
-#' runner$cluster(NULL)
+#' # Run this setup.
 #' runner$run()
-#' identical(out, runner$collate())
-#' 
+#'
+#' # Looks like all configurations failed, because the worker nodes
+#' # can't find variable a. Let's export it to worker nodes and try again.
+#' runner$export_vars("a")
+#' runner$run()
+#'
+#' # We have new errors. Most of the nodes complain that we haven't
+#' # loaded the rlang package. Let's fix that.
+#' runner$setup({library(rlang)})
+#' runner$run()
+#'
+#' # Here's what the individual run files look like:
+#' list.files(outdir, recursive = TRUE)
+#'
+#' # If we run again, successful runs will be skipped.
+#' runner$run()
+#'
+#' # Data frame of successful runs. If your configuration or output
+#' # data structure is more complex, you may need to use custom
+#' # functions for collate().
+#' runner$collate()
+#'
+#' # The remaining errors are more subtle. Which configurations did
+#' # not succeed? (First 2 shown.)
+#' head(runner$todo(), 2)
+#'
+#' # Alternatively, we can have the unsuccessful runs saved and inspect them.
+#' runner$options(error = "save")
+#' runner$run()
+#' head(runner$erred(), 2)
+#'
+#' # In fact, we can easily test-run the function to reproduce the error:
+#' \dontrun{
+#' errcfg <- runner$erred()[[1]]
+#' debugonce(f) # to step through it
+#' set.seed(errcfg$seed)
+#' do.call(f, errcfg$treatment)
+#' }
+#'
+#' # Let's say that based on the above, we were able to fix the bug.
+#' f <- function(x, y) {
+#'   p <- x*y
+#'   u <- runif(1)
+#'   dbl(p = p, u = u)
+#' }
+#'
+#' # Replace the worker function, clear the erred outputs, and run again.
+#' runner$worker(f)$clean()$run()
+#'
+#' # Now, we have all 24 combinations!
+#' runner$collate()
+#'
 #' @import parallel
 #' @importFrom rlang hash
 #' @importFrom R6 R6Class
@@ -52,7 +113,7 @@ Piecemeal <- R6Class("Piecemeal",
   private = list(
     .outdir = NULL,
     .cl_setup = NULL,
-    .setup_expr = {},
+    .setup = {},
     .treatments = list(),
     .worker = NULL,
     .seeds = NULL,
@@ -80,7 +141,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Specify variables to be copied from the manager node to the worker nodes' global environment.
     #' @param varlist a character vector with variable names.
     #' @param .add whether the new variables should be added to the current list (if `TRUE`, the default) or replace it (if `FALSE`).
-    send_vars = function(varlist, .add = TRUE) {
+    export_vars = function(varlist, .add = TRUE) {
       if(!.add) private$.cl_vars <- NULL
       private$.cl_vars <- unique(c(private$.cl_vars, varlist))
       invisible(self)
@@ -89,8 +150,8 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Specify code to be run on each worker node at the start of the simulation.
     #' @param expr an expression; if passed, replaces the previous expression; if empty, resets it to nothing.
     setup = function(expr) {
-      if(missing(expr)) private$.setup_expr <- {}
-      private$.setup_expr <- substitute(expr)
+      if(missing(expr)) private$.setup <- {}
+      private$.setup <- substitute(expr)
       invisible(self)
     },
 
@@ -157,23 +218,31 @@ Piecemeal <- R6Class("Piecemeal",
       }
 
       configs <- self$todo()
+      message(sprintf("Starting %d runs. (%d already done.)", length(configs), done <- attr(configs, "done")))
+
       if(shuffle) configs <- configs[sample.int(length(configs))]
       
 
-      invisible(simplify2array(
+      statuses <- simplify2array(
         if(is.null(cl)) lapply(configs, run_config, split = private$.split, error = private$.error, worker = private$.worker, outdir = private$.outdir)
         else clusterApplyLB(cl, configs, run_config, split = private$.split, error = private$.error)
-      ))
+      )
+
+      s <- c(if(length(statuses)) statuses |> strsplit("\n", fixed = TRUE) |> vapply(`[`, "", -1L),
+             rep("SKIPPED", done)) |>
+        table() |> as.data.frame() |> setNames(c("Status", "Runs")) |> capture.output() |> paste(collapse = "\n") |> message()
+
+      if(length(statuses)) invisible(statuses) else character(0)
     },
 
     #' @description List the configurations still to be run.
-    #' @return A list of lists with arguments to the worker functions.
+    #' @return A list of lists with arguments to the worker functions; also an attribute `"done"` giving the number of configurations skipped because they are already done.
     todo = function() {
       done <- basename(list.files(private$.outdir, ".*\\.rds", full.names = FALSE, recursive = TRUE))
       configs <- expand.list(seed = private$.seeds, treatment = private$.treatments)
       configfn <- vapply(configs, config_fn, "")
       configs <- Map(function(conf, fn) c(conf, list(fn = fn)), configs, configfn)
-      configs[! configfn %in% done]
+      structure(configs[! configfn %in% done], done = sum(configfn %in% done))
     },
 
     #' @description Scan through the results files and collate them into a data frame.
@@ -189,14 +258,19 @@ Piecemeal <- R6Class("Piecemeal",
 
       l <- lapply(done, function(fn) {
         o <- try(readRDS(fn))
+        if(inherits(o, "try-error")){
+          message("Run file ", sQuote(fn), " corrupted. This should never happen.")
+          return(NULL)
+        }
+
         if(o$OK)
-          c(list(),
+          as.data.frame(c(list(),
             trt_tf(o$config$treatment), out_tf(o$output),
-            list(.seed = o$config$seed, .trt_hash = attr(o$config$treatment, "hash"), .rds = fn))
+            list(.seed = o$config$seed, .trt_hash = attr(o$config$treatment, "hash"), .rds = fn)))
         else NULL
       })
       erred <- vapply(l, is.null, FALSE)
-      if(any(erred)) message(sum(erred), " configurations have returned an error.")
+      if(any(erred)) message(sprintf("%d/%d runs had returned an error.", sum(erred), length(erred)))
       l <- l[!erred]
       do.call(rbind, l)
     },
@@ -208,10 +282,32 @@ Piecemeal <- R6Class("Piecemeal",
         ans <- readline(paste0('This will delete all files from ', sQuote(private$.outdir), '. Are you sure? ("yes" to confirm, anything else to cancel) '))
         if(ans != "yes"){
           message("Cancelled.")
-          return()
+          invisible(self)
         }
       }
       unlink(private$.outdir, recursive = TRUE)
+      invisible(self)
+    },
+
+    #' @description Delete the result files for which the worker function failed.
+    clean = function() {
+      done <- list.files(private$.outdir, ".*\\.rds", full.names = TRUE, recursive = TRUE)
+
+      erred <- vapply(done, function(fn) !readRDS(fn)$OK, FALSE)
+      unlink(done[erred])
+      message(sprintf("%d/%d runs deleted.", sum(erred), length(erred)))
+      invisible(self)
+    },
+
+    #' @description List the configurations for which the worker function failed.
+    erred = function() {
+      done <- list.files(private$.outdir, ".*\\.rds", full.names = TRUE, recursive = TRUE)
+      l <- lapply(done, function(fn){
+        x <- readRDS(fn)
+        if(!x$OK) x$config
+      })
+      OK <- vapply(l, is.null, FALSE)
+      l[!OK]
     },
 
     #' @description Set miscellaneous options.
@@ -223,6 +319,7 @@ Piecemeal <- R6Class("Piecemeal",
     options = function(split = 0L, error = c("skip", "save")) {
       if(!missing(split)) private$.split = split
       if(!missing(error)) private$.error = match.arg(error)
+      invisible(self)
     }
     
   )
@@ -242,12 +339,15 @@ run_config <- function(config, split, error, worker = NULL, outdir = NULL) {
   dir.create(dn, recursive = TRUE, showWarnings = FALSE)
   fn <- file.path(dn, fn)
 
-  if(file.exists(fn)) return(paste(fn, "SKIPPED")) # If this treatment + seed combination has been run, move on.
+  if(file.exists(fn)) return(paste(fn, "SKIPPED", sep = "\n")) # If this treatment + seed combination has been run, move on.
 
   # Or, if it's already being run by another process, move on; otherwise, lock it.
-  fnlock <- filelock::lock(fn, timeout = 0)
-  on.exit(filelock::unlock(fnlock))
-  if(is.null(fnlock)) return(paste(fn, "SKIPPED"))
+  fnlock <- filelock::lock(paste0(fn, ".lock"), timeout = 0)
+  on.exit({
+    filelock::unlock(fnlock)
+    unlink(paste0(fn, ".lock"))
+  })
+  if(is.null(fnlock)) return(paste(fn, "SKIPPED", sep = "\n"))
 
   set.seed(config$seed)
   out <- try(do.call(worker, config$treatment))
@@ -263,5 +363,5 @@ run_config <- function(config, split, error, worker = NULL, outdir = NULL) {
   # result.
   saveRDS(list(output = out, config = config, OK = OK), paste0(fn, ".tmp"))
   file.rename(paste0(fn, ".tmp"), fn)
-  return(paste(fn, "OK"))
+  if(OK) return(paste(fn, "OK", sep = "\n")) else return(paste(fn, out, sep = "\n"))
 }
