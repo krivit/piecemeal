@@ -17,13 +17,16 @@ On the worker nodes, the worker function is not called directly; rather, care is
 
 Errors in the worker function are caught and error messages saved and returned.
 }
+\note{
+If no treatment is specified, the function is called with no arguments (or just \code{.seed}).
+}
 \examples{
 
 outdir <- file.path(tempdir(), "piecemeal_demo")
 
 # New simulation study.
-runner <- Piecemeal$new(outdir)
-runner$reset(FALSE) # Reset, just in case.
+sim <- Piecemeal$new(outdir)
+sim$reset(FALSE) # Reset, just in case.
 
 # A function of x and y that returns their product and a random
 # number between 0 and 1. It also happens to crash if the sum of
@@ -44,7 +47,7 @@ f <- function(x, y) {
   dbl(p = p, u = u)
 }
 
-runner$ # Set up the following simulation study:
+sim$ # Set up the following simulation study:
 # a socket cluster with 2 nodes;
   cluster(2)$
 # a factorial design with x = 1, 2 and y = 1, 3, 9, 27;
@@ -57,44 +60,44 @@ runner$ # Set up the following simulation study:
   options(split = 1)
 
 # What do we still need to run? (First 2 shown.)
-head(runner$todo(), 2)
+head(sim$todo(), 2)
 
 # Run this setup.
-runner$run()
+sim$run()
 
 # Looks like all configurations failed, because the worker nodes
 # can't find variable a. Let's export it to worker nodes and try again.
-runner$export_vars("a")
-runner$run()
+sim$export_vars("a")
+sim$run()
 
 # We have new errors. Most of the nodes complain that we haven't
 # loaded the rlang package. Let's fix that.
-runner$setup({library(rlang)})
-runner$run()
+sim$setup({library(rlang)})
+sim$run()
 
 # Here's what the individual run files look like:
 list.files(outdir, recursive = TRUE)
 
 # If we run again, successful runs will be skipped.
-runner$run()
+sim$run()
 
 # Data frame of successful runs. If your configuration or output
 # data structure is more complex, you may need to use custom
 # functions for collate().
-runner$collate()
+sim$collate()
 
 # The remaining errors are more subtle. Which configurations did
 # not succeed? (First 2 shown.)
-head(runner$todo(), 2)
+head(sim$todo(), 2)
 
 # Alternatively, we can have the unsuccessful runs saved and inspect them.
-runner$options(error = "save")
-runner$run()
-head(runner$erred(), 2)
+sim$options(error = "save")
+sim$run()
+head(sim$erred(), 2)
 
 # In fact, we can easily test-run the function to reproduce the error:
 \dontrun{
-errcfg <- runner$erred()[[1]]
+errcfg <- sim$erred()[[1]]
 debugonce(f) # to step through it
 set.seed(errcfg$seed)
 do.call(f, errcfg$treatment)
@@ -108,10 +111,17 @@ f <- function(x, y) {
 }
 
 # Replace the worker function, clear the erred outputs, and run again.
-runner$worker(f)$clean()$run()
+sim$worker(f)$clean()$run()
 
 # Now, we have all 24 combinations!
-runner$collate()
+sim$collate()
+
+# Lastly, suppose that we want to run additional 2 replications of
+# each treatment combination. We can pick up where we left off.
+sim$nrep(5)
+sim$run()
+
+sim$collate()
 
 }
 \section{Methods}{
@@ -218,7 +228,7 @@ Specify the function to be run for each treatment configuration.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{fun}}{a function whose arguments are specified by \verb{$treatments()} and \verb{$factorial()}.}
+\item{\code{fun}}{a function whose arguments are specified by \verb{$treatments()} and \verb{$factorial()}; if it has \code{.seed} as a named argument, the seed will be passed as well.}
 }
 \if{html}{\out{</div>}}
 }

@@ -8,14 +8,16 @@
 #' On the worker nodes, the worker function is not called directly; rather, care is taken to make sure that the specified configuration and seed is not already being worked on. This makes it safe to, e.g., queue multiple jobs for the same simulation. If the configuration is available, `set.seed()` is called with the seed and then the worker function is run.
 #'
 #' Errors in the worker function are caught and error messages saved and returned.
+#'
+#' @note If no treatment is specified, the function is called with no arguments (or just `.seed`).
 #' 
 #' @examples
 #'
 #' outdir <- file.path(tempdir(), "piecemeal_demo")
 #'
 #' # New simulation study.
-#' runner <- Piecemeal$new(outdir)
-#' runner$reset(FALSE) # Reset, just in case.
+#' sim <- Piecemeal$new(outdir)
+#' sim$reset(FALSE) # Reset, just in case.
 #'
 #' # A function of x and y that returns their product and a random
 #' # number between 0 and 1. It also happens to crash if the sum of
@@ -36,7 +38,7 @@
 #'   dbl(p = p, u = u)
 #' }
 #' 
-#' runner$ # Set up the following simulation study:
+#' sim$ # Set up the following simulation study:
 #' # a socket cluster with 2 nodes;
 #'   cluster(2)$
 #' # a factorial design with x = 1, 2 and y = 1, 3, 9, 27;
@@ -49,44 +51,44 @@
 #'   options(split = 1)
 #'
 #' # What do we still need to run? (First 2 shown.)
-#' head(runner$todo(), 2)
+#' head(sim$todo(), 2)
 #'
 #' # Run this setup.
-#' runner$run()
+#' sim$run()
 #'
 #' # Looks like all configurations failed, because the worker nodes
 #' # can't find variable a. Let's export it to worker nodes and try again.
-#' runner$export_vars("a")
-#' runner$run()
+#' sim$export_vars("a")
+#' sim$run()
 #'
 #' # We have new errors. Most of the nodes complain that we haven't
 #' # loaded the rlang package. Let's fix that.
-#' runner$setup({library(rlang)})
-#' runner$run()
+#' sim$setup({library(rlang)})
+#' sim$run()
 #'
 #' # Here's what the individual run files look like:
 #' list.files(outdir, recursive = TRUE)
 #'
 #' # If we run again, successful runs will be skipped.
-#' runner$run()
+#' sim$run()
 #'
 #' # Data frame of successful runs. If your configuration or output
 #' # data structure is more complex, you may need to use custom
 #' # functions for collate().
-#' runner$collate()
+#' sim$collate()
 #'
 #' # The remaining errors are more subtle. Which configurations did
 #' # not succeed? (First 2 shown.)
-#' head(runner$todo(), 2)
+#' head(sim$todo(), 2)
 #'
 #' # Alternatively, we can have the unsuccessful runs saved and inspect them.
-#' runner$options(error = "save")
-#' runner$run()
-#' head(runner$erred(), 2)
+#' sim$options(error = "save")
+#' sim$run()
+#' head(sim$erred(), 2)
 #'
 #' # In fact, we can easily test-run the function to reproduce the error:
 #' \dontrun{
-#' errcfg <- runner$erred()[[1]]
+#' errcfg <- sim$erred()[[1]]
 #' debugonce(f) # to step through it
 #' set.seed(errcfg$seed)
 #' do.call(f, errcfg$treatment)
@@ -100,10 +102,17 @@
 #' }
 #'
 #' # Replace the worker function, clear the erred outputs, and run again.
-#' runner$worker(f)$clean()$run()
+#' sim$worker(f)$clean()$run()
 #'
 #' # Now, we have all 24 combinations!
-#' runner$collate()
+#' sim$collate()
+#'
+#' # Lastly, suppose that we want to run additional 2 replications of
+#' # each treatment combination. We can pick up where we left off.
+#' sim$nrep(5)
+#' sim$run()
+#'
+#' sim$collate()
 #'
 #' @import parallel
 #' @importFrom rlang hash
@@ -156,7 +165,7 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description Specify the function to be run for each treatment configuration.
-    #' @param fun a function whose arguments are specified by `$treatments()` and `$factorial()`.
+    #' @param fun a function whose arguments are specified by `$treatments()` and `$factorial()`; if it has `.seed` as a named argument, the seed will be passed as well.
     worker = function(fun) {
       private$.worker <- fun
       invisible(self)
@@ -166,7 +175,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param l a list, typically of lists of arguments to be passed to the function specified by `worker`; it is recommended that these be as compact as possible, since they are [`serialize`]d and sent to the worker node for every combination of treatment configuration and random seed.
     #' @param .add whether the new treatment configurations should be added to the current list (if `TRUE`, the default) or replace it (if `FALSE`.
     treatments = function(l, .add = TRUE) {
-      l <- lapply(l, function(x) structure(x, hash = rlang::hash(x)))
+      l <- lapply(l, add_hash)
       if(!.add) private$.treatments <- list()
       private$.treatments <- c(private$.treatments, l)
       invisible(self)
@@ -239,7 +248,9 @@ Piecemeal <- R6Class("Piecemeal",
     #' @return A list of lists with arguments to the worker functions; also an attribute `"done"` giving the number of configurations skipped because they are already done.
     todo = function() {
       done <- basename(list.files(private$.outdir, ".*\\.rds", full.names = FALSE, recursive = TRUE))
-      configs <- expand.list(seed = private$.seeds, treatment = private$.treatments)
+      configs <- expand.list(seed = private$.seeds,
+                             treatment = if(length(private$.treatments)) private$.treatments
+                                         else list(add_hash(list())))
       configfn <- vapply(configs, config_fn, "")
       configs <- Map(function(conf, fn) c(conf, list(fn = fn)), configs, configfn)
       structure(configs[! configfn %in% done], done = sum(configfn %in% done))
@@ -325,6 +336,11 @@ Piecemeal <- R6Class("Piecemeal",
   )
   )
 
+add_hash <- function(x) {
+  attr(x, "hash") <- NULL
+  structure(x, hash = rlang::hash(x))
+}
+
 config_fn <- function(config, split = 0L) {
   paste(attr(config$treatment, "hash"), config$seed, "rds", sep = ".")
 }
@@ -348,6 +364,9 @@ run_config <- function(config, split, error, worker = NULL, outdir = NULL) {
     unlink(paste0(fn, ".lock"))
   })
   if(is.null(fnlock)) return(paste(fn, "SKIPPED", sep = "\n"))
+
+  if(".seed" %in% names(formals(worker)))
+    config$treatment$.seed <- config$seed
 
   set.seed(config$seed)
   out <- try(do.call(worker, config$treatment))

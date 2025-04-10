@@ -2,7 +2,7 @@ Package: piecemeal
 Title: Parallelise large simulations in a resumable manner
 Version: 0.0.0.9000
 Authors@R: person(c("Pavel", "N."), "Krivitsky", role=c("aut", "cre"), email="pavel@statnet.org", comment=c(ORCID="0000-0002-9101-3362"))
-Description: What the package does (one paragraph).
+Description: The goal of piecemeal is to simplify running simulation studies made up of many relatively small replications and treatment configurations in a setting (such as a shared a computing cluster) in which the parallel processing may be interrupted due to time limits, errors, or for other reasons.
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
