@@ -48,8 +48,9 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# emacs backup files
+# backup files
 *~
+*.bak
 
 # object and shared object files
 src/*.o
