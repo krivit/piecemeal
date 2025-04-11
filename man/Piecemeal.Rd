@@ -39,6 +39,9 @@ sim$
   # on a cluster with two nodes.
   cluster(2)
 
+# Summarise
+sim
+
 # Go!
 sim$run()
 
@@ -68,6 +71,7 @@ sim$result_df()
 \item \href{#method-Piecemeal-clean}{\code{Piecemeal$clean()}}
 \item \href{#method-Piecemeal-erred}{\code{Piecemeal$erred()}}
 \item \href{#method-Piecemeal-options}{\code{Piecemeal$options()}}
+\item \href{#method-Piecemeal-print}{\code{Piecemeal$print()}}
 \item \href{#method-Piecemeal-clone}{\code{Piecemeal$clone()}}
 }
 }
@@ -369,6 +373,15 @@ Set miscellaneous options.
 }
 \if{html}{\out{</div>}}
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-print"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-print}{}}}
+\subsection{Method \code{print()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$print(...)}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-clone"></a>}}

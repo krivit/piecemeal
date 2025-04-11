@@ -33,6 +33,9 @@
 #'   # on a cluster with two nodes.
 #'   cluster(2)
 #'
+#' # Summarise
+#' sim
+#'
 #' # Go!
 #' sim$run()
 #'
@@ -277,8 +280,43 @@ Piecemeal <- R6Class("Piecemeal",
       if(!missing(split)) private$.split <- rep_len(split, 2L)
       if(!missing(error)) private$.error <- match.arg(error)
       invisible(self)
+    },
+
+    print = function(...) {
+      cat("A Piecemeal simulation\n")
+      cat("Output directory:", private$.outdir, "\n")
+      cat("\nDesign:", length(private$.treatments), "treatment configurations by", length(private$.seeds), "seeds =", length(private$.treatments)*length(private$.seeds), "runs\n")
+
+      if(is.null(private$.cl_setup)) cat("\nNo cluster set up.\n")
+      else{
+        cat("\nCluster:\n")
+        if(inherits(private$.cl_setup, "cluster")) {
+          cat("  preexisting: ")
+          print(private$.cl_setup)
+        } else {
+          cat("  configuration: ")
+          print(as.call(c(list(as.name("makeCluster")), private$.cl_setup)))
+        }
+        if(length(private$.setup) && !identical(private$.setup, quote({}))) {
+          cat("  initialise each node with:\n")
+          cat(paste("   ", deparse(private$.setup), collapse = "\n"), "\n")
+        }
+
+        if(length(private$.cl_vars))
+           cat("  variables to copy:", paste(sQuote(private$.cl_vars), collapse = ", "), "\n")
+      }
+
+      if(length(private$.worker)) {
+        cat("\nCall for each configuration and seed:\n")
+        cat(paste(" ", deparse(private$.worker), collapse = "\n"), "\n")
+      }
+
+      cat("\nOptions:\n")
+      cat("  directory split:", private$.split[1], "level(s) by treatment and", private$.split[2], "level(s) by seed\n")
+      cat("  errored runs:", private$.error, "\n\n")
+
+      cat("Ready to execute?", if(length(private$.treatments) && length(private$.seeds) && length(private$.worker)) "Yes." else "No.", "\n")
     }
-    
   )
   )
 

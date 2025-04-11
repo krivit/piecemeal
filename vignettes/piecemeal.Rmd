@@ -75,6 +75,11 @@ Set the calling a function of x and y:
 sim$worker(f)
 ```
 
+Here is our set up so far:
+```{r}
+sim
+```
+
 Note that we could have chained all these together:
 ```{r, eval = FALSE}
 sim$
@@ -160,12 +165,18 @@ f <- function(x, y) {
 }
 ```
 
-Replace the worker function, clear the erred outputs, and run again.
+Replace the worker function. What does our simulation look like now?
 ```{r}
-sim$worker(f)$clean()$run()
+sim$worker(f)
+sim
 ```
 
-Now, we have all 24 combinations!
+Now, clear the erred outputs, and run again.
+```{r}
+sim$clean()$run()
+```
+
+We have all 24 combinations!
 ```{r}
 sim$result_df()
 ```
