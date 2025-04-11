@@ -19,9 +19,10 @@ This package grew out of a common problem of running a simulation with large num
 
 Those package with fault-tolerance capabilities typically focus on crashing worker nodes.
 
-This can be worked around in a variety of ways. Functions can be wrapped in \code{\link[=try]{try()}}. Rather than returning the result to the manager process, the worker can save its results to a unique file, with the results collated at the end. \code{\link{Piecemeal}} automates this and other tricks.
-
-See \href{../doc/piecemeal.html}{the vignette \code{vignette("piecemeal")}} for a worked example.
+This can be worked around in a variety of ways. Functions can be wrapped in \code{\link[=try]{try()}}. Rather than returning the result to the manager process, the worker can save its results to a unique file, with the results collated at the end. \code{\link{Piecemeal}} automates this, and keeps careful track of inputs and random seeds, ensuring that problematic realisations can be located and debugged quickly and efficiently. A locking system even makes it possible to have multiple jobs running the same study on the same cluster without interfering with each other.
+}
+\seealso{
+The \code{\link{Piecemeal}} \code{\link[R6:R6Class]{R6}} class for details and the \href{../doc/piecemeal.html}{vignette (\code{vignette("piecemeal")})} for a worked example.
 }
 \author{
 \strong{Maintainer}: Pavel N. Krivitsky \email{pavel@statnet.org} (\href{https://orcid.org/0000-0002-9101-3362}{ORCID})

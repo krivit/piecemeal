@@ -1,6 +1,6 @@
 #' The `Piecemeal` [`R6`] Class
 #'
-#' @description This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See [the vignette `vignette("piecemeal")`](../doc/piecemeal.html) for a worked example.
+#' @description This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See [the vignette `vignette("piecemeal")`](../doc/piecemeal.html) for long worked example.
 #'
 #' @details A chain of `R6` method calls is used to specify the setup and the worker functions, the treatment configurations to be passed to the worker, and parallelism and other simulation settings. Then, when `$run()` is called, the cluster is started, worker nodes are initialised, and every combination of random seed and treatment configuration is passed to [clusterApplyLB()] (if parallel processing is enabled).
 #'
@@ -11,8 +11,35 @@
 #' @note If no treatment is specified, the function is called with no arguments (or just `.seed`).
 #' 
 #' @examples
+#' # Initialise, with the output directory.
+#' sim <- Piecemeal$new(file.path(tempdir(), "piecemeal_demo"))
+#' # Clear the previous simulation, if present.
+#' sim$reset(FALSE)
 #'
-#' # See vignette("piecemeal").
+#' # Set up a simulation:
+#' sim$
+#'   # for every combination of x = 1, 2 and y = 1, 3, 9, 27,
+#'   factorial(x = 2^(0:1), y = 3^(0:3))$
+#'   # each replicated 3 times,
+#'   nrep(3)$
+#'   # first load library 'rlang',
+#'   setup({library(rlang)})$
+#'   # then for each x, y, and seed, evaluate
+#'   worker(function(x, y) {
+#'     p <- x*y
+#'     u <- runif(1)
+#'     dbl(p = p, u = u)
+#'   })$
+#'   # on a cluster with two nodes.
+#'   cluster(2)
+#'
+#' # Go!
+#' sim$run()
+#'
+#' # Get a table with the results.
+#' sim$result_df()
+#'
+#' # For a more involved version of this example, see vignette("piecemeal").
 #'
 #' @import parallel
 #' @importFrom rlang hash
@@ -183,14 +210,14 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description Scan through the results files and collate them into a data frame.
     #' @param trt_tf,out_tf functions that take the treatment configuration list and the output respectively, and return lists that can be used as data frame columns.
+    #' @param rds whether to include an `.rds` column described below.
     #' @return A data frame with columns corresponding to the values returned by `trt_tf` and `out_tf`, with the following additional columns:
     #' \describe{
     #' \item{`.seed`}{the random seed used.}
-    #' \item{`.trt_hash`}{the hash of the treatment configuration.}
-    #' \item{`.rds`}{the path to the RDS file}
+    #' \item{`.rds`}{the path to the RDS file.}
     #' }
     #' Runs that erred are filtered out.
-    result_df = function(trt_tf = identity, out_tf = identity) {
+    result_df = function(trt_tf = identity, out_tf = identity, rds = FALSE) {
       l <- self$result_list() |>
         compact(\(x) x$config)
 
@@ -201,7 +228,7 @@ Piecemeal <- R6Class("Piecemeal",
       map(l, function(o) {
         as.data.frame(c(list(),
                         trt_tf(o$treatment), out_tf(o$output),
-                        list(.seed = o$config$seed, .trt_hash = attr(o$treatment, "hash"), .rds = o$rds)))
+                        list(.seed = o$config$seed), if(rds) list(.rds = o$rds)))
       }) |>
         do.call(rbind, args = _)
     },
