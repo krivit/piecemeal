@@ -278,7 +278,7 @@ Piecemeal <- R6Class("Piecemeal",
     result_list = function() {
       lapply(private$.done(), function(fn) {
         o <- safe_readRDS(fn, verbose = TRUE)
-        list(config = o$config[names(o$config) != "treatment"], treatment = o$config$treatment, OK = o$OK, rds = fn)
+        list(config = o$config[names(o$config) != "treatment"], output = o$output, treatment = o$config$treatment, OK = o$OK, rds = fn)
       })
     },
 
