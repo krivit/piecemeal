@@ -378,6 +378,7 @@ Set miscellaneous options.
 \if{html}{\out{<a id="method-Piecemeal-print"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-print}{}}}
 \subsection{Method \code{print()}}{
+Print the current simulation settings, including whether there is enough information to run it.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Piecemeal$print(...)}\if{html}{\out{</div>}}
 }

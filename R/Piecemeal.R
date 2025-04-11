@@ -282,6 +282,7 @@ Piecemeal <- R6Class("Piecemeal",
       invisible(self)
     },
 
+    #' @description Print the current simulation settings, including whether there is enough information to run it.
     print = function(...) {
       cat("A Piecemeal simulation\n")
       cat("Output directory:", private$.outdir, "\n")
