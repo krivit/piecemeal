@@ -296,7 +296,7 @@ Scan through the results files and collate them into a data frame.
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{trt_tf, out_tf}}{functions that take the treatment configuration list and the output respectively, and return lists that can be used as data frame columns.}
+\item{\code{trt_tf, out_tf}}{functions that take the treatment configuration list and the output respectively, and return named lists that become data frame columns; a special value \code{I} instead creates columns \code{treatment} and/or \code{output} with the respective lists copied as is.}
 
 \item{\code{rds}}{whether to include an \code{.rds} column described below.}
 }

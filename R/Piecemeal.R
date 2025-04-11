@@ -209,7 +209,7 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description Scan through the results files and collate them into a data frame.
-    #' @param trt_tf,out_tf functions that take the treatment configuration list and the output respectively, and return lists that can be used as data frame columns.
+    #' @param trt_tf,out_tf functions that take the treatment configuration list and the output respectively, and return named lists that become data frame columns; a special value `I` instead creates columns `treatment` and/or `output` with the respective lists copied as is.
     #' @param rds whether to include an `.rds` column described below.
     #' @return A data frame with columns corresponding to the values returned by `trt_tf` and `out_tf`, with the following additional columns:
     #' \describe{
@@ -218,6 +218,8 @@ Piecemeal <- R6Class("Piecemeal",
     #' }
     #' Runs that erred are filtered out.
     result_df = function(trt_tf = identity, out_tf = identity, rds = FALSE) {
+      if(identical(trt_tf, I)) trt_tf <- \(x) list(treatment=list(x))
+      if(identical(out_tf, I)) out_tf <- \(x) list(output=list(x))
       l <- self$result_list() |>
         compact(\(x) x$config)
 
@@ -226,9 +228,10 @@ Piecemeal <- R6Class("Piecemeal",
       l <- l[OK]
 
       map(l, function(o) {
-        as.data.frame(c(list(),
-                        trt_tf(o$treatment), out_tf(o$output),
-                        list(.seed = o$config$seed), if(rds) list(.rds = o$rds)))
+        structure(c(list(),
+                    trt_tf(o$treatment), out_tf(o$output),
+                    list(.seed = o$config$seed), if(rds) list(.rds = o$rds)),
+                  class = "data.frame", row.names = 1L)
       }) |>
         do.call(rbind, args = _)
     },
