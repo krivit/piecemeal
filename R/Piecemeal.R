@@ -1,9 +1,8 @@
-#' A class for setting up and running large simulations piecemeal
+#' The `Piecemeal` [`R6`] Class
 #'
-#' This class facilitates simulation studies made up of many relatively small replications and treatment configurations in a setting (such as a shared a computing cluster) in which the parallel processing may be interrupted due to time limits, errors, or for other reasons. Regular implementations, such as, \pkg{parallel}, execute the worker function for each configuration of interest and then return the result list. This means that if the process is interrupted due to, say, the job running out of time, all results are lost. `Piecemeal` instead saves the result of each treatment level and seed combination into its own file, then collates the results at the end.
+#' @description This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See [the vignette `vignette("piecemeal")`](../doc/piecemeal.html) for a worked example.
 #'
-#'
-#' @details A chain of `R6` method calls is used to specify the setup and the worker functions, the treatment configurations to be passed to the worker, and parallelism and other simulation settings. Then, when `$run()` is called, the cluster is started, worker nodes are initialised, and every combination of random seed and treatment configuration is passed to [clusterApplyLB()].
+#' @details A chain of `R6` method calls is used to specify the setup and the worker functions, the treatment configurations to be passed to the worker, and parallelism and other simulation settings. Then, when `$run()` is called, the cluster is started, worker nodes are initialised, and every combination of random seed and treatment configuration is passed to [clusterApplyLB()] (if parallel processing is enabled).
 #'
 #' On the worker nodes, the worker function is not called directly; rather, care is taken to make sure that the specified configuration and seed is not already being worked on. This makes it safe to, e.g., queue multiple jobs for the same simulation. If the configuration is available, `set.seed()` is called with the seed and then the worker function is run.
 #'
@@ -13,107 +12,7 @@
 #' 
 #' @examples
 #'
-#' outdir <- file.path(tempdir(), "piecemeal_demo")
-#'
-#' # New simulation study.
-#' sim <- Piecemeal$new(outdir)
-#' sim$reset(FALSE) # Reset, just in case.
-#'
-#' # A function of x and y that returns their product and a random
-#' # number between 0 and 1. It also happens to crash if the sum of
-#' # the product and the hundredths digit of the random number is
-#' # divisible by 4, with an error message that depends on the
-#' # remainder of dividing it by 8. It also relies on an external
-#' # constant a = 8 that is defined in the function's environment and
-#' # uses the package 'rlang'.
-#' a <- 8
-#' f <- function(x, y) {
-#'   p <- x*y
-#'   u <- runif(1)
-#'
-#'   errcond <- p + floor(u * 100) %% 10 + a
-#'   if(errcond %% 4 == 0) stop("condition ", errcond %% 8, call. = FALSE)
-#'
-#'   # rlang::dbl
-#'   dbl(p = p, u = u)
-#' }
-#' 
-#' sim$ # Set up the following simulation study:
-#' # a socket cluster with 2 nodes;
-#'   cluster(2)$
-#' # a factorial design with x = 1, 2 and y = 1, 3, 9, 27;
-#'   factorial(x = 2^(0:1), y = 3^(0:3))$
-#' # with 3 replications per combination of x and y;
-#'   nrep(3)$
-#' # calling a function of x and y.
-#'   worker(f)
-#'
-#' # What do we still need to run? (First 2 shown.)
-#' head(sim$todo(), 2)
-#'
-#' # Run this setup.
-#' sim$run()
-#'
-#' # Looks like all configurations failed, because the worker nodes
-#' # can't find the variable `a`. Let's export it to worker nodes and try again.
-#' sim$export_vars("a")
-#' sim$run()
-#'
-#' # We have new errors. Most of the nodes complain that we haven't
-#' # loaded the rlang package. Let's fix that.
-#' sim$setup({library(rlang)})
-#' sim$run()
-#'
-#' # Here's what the individual run output files look like. Note that
-#' # they are split up into subdirectories. This improves performance
-#' # on some file systems. It can be controlled by the
-#' # $options(split=) setting.
-#' list.files(outdir, recursive = TRUE)
-#'
-#' # If we run again, successful runs will be skipped.
-#' sim$run()
-#'
-#' # Data frame of successful runs. If your configuration or output
-#' # data structure is more complex, you may need to use custom
-#' # functions for result_df().
-#' sim$result_df()
-#'
-#' # The remaining errors are more subtle. Which configurations did
-#' # not succeed? (First 2 shown.)
-#' head(sim$todo(), 2)
-#'
-#' # Alternatively, we can have the unsuccessful runs saved and inspect them.
-#' sim$options(error = "save")
-#' sim$run()
-#' head(sim$erred(), 2)
-#'
-#' # In fact, we can easily test-run the function to reproduce the error:
-#' \dontrun{
-#' errcfg <- sim$erred()[[1]]
-#' debugonce(f) # to step through it
-#' set.seed(errcfg$seed)
-#' do.call(f, errcfg$treatment)
-#' }
-#'
-#' # Let's say that based on the above, we were able to fix the bug.
-#' f <- function(x, y) {
-#'   p <- x*y
-#'   u <- runif(1)
-#'   dbl(p = p, u = u)
-#' }
-#'
-#' # Replace the worker function, clear the erred outputs, and run again.
-#' sim$worker(f)$clean()$run()
-#'
-#' # Now, we have all 24 combinations!
-#' sim$result_df()
-#'
-#' # Lastly, suppose that we want to run additional 2 replications of
-#' # each treatment combination. We can pick up where we left off.
-#' sim$nrep(5)
-#' sim$run()
-#'
-#' sim$result_df()
+#' # See vignette("piecemeal").
 #'
 #' @import parallel
 #' @importFrom rlang hash

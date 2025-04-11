@@ -1,0 +1,179 @@
+---
+title: "A Simulation Study using Piecemeal"
+author: Pavel N. Krivitsky
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{A Simulation Study using Piecemeal}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+Suppose that we want to simulate a function of two variables, $x$ and
+$y$, for $x = 1, 2$ and $y = 1, 3, 9, 27$.
+
+The function ultimately returns $x\times y$ and a random number
+between 0 and 1, but to get there, it relies on an external constant
+`a` equalling to 8 that is defined in its environment and on the
+package `rlang`.
+
+Unfortunately, our initial implementation also has some bugs that
+cause it to crash if the sum of the product and the hundredths digit
+of the random number is divisible by 4, with an error message that
+depends on the remainder of dividing it by 8.
+
+Here it is:
+```{r}
+a <- 8
+f <- function(x, y) {
+  p <- x*y
+  u <- runif(1)
+
+  errcond <- p + floor(u * 100) %% 10 + a
+  if(errcond %% 4 == 0) stop("condition ", errcond %% 8, call. = FALSE)
+
+  # rlang::dbl
+  dbl(p = p, u = u)
+}
+```
+
+We begin by setting the directory for run outputs. We will use R's temporary directory:
+```{r}
+outdir <- file.path(tempdir(), "piecemeal_demo")
+```
+
+Initialise the `Piecemeal` object.
+```{r}
+sim <- piecemeal::Piecemeal$new(outdir)
+```
+
+The following will clear the simulation outputs. Called without arguments, it will ask for confirmation first.
+```{r}
+sim$reset(FALSE)
+```
+
+The cluster has 2 nodes. We can also pass a cluster object:
+```{r}
+sim$cluster(2)
+```
+Set a factorial design with $x = 1, 2$ and $y = 1, 3, 9, 27$:
+```{r}
+sim$factorial(x = 2^(0:1), y = 3^(0:3))
+```
+Use 3 replications per combination of $x$ and $y$:
+```{r}
+sim$nrep(3)
+```
+Set the calling a function of x and y:
+```{r}
+sim$worker(f)
+```
+
+Note that we could have chained all these together:
+```{r, eval = FALSE}
+sim$
+  cluster(2)$
+  factorial(x = 2^(0:1), y = 3^(0:3))$
+  nrep(3)$
+  worker(f)
+```
+
+We can obtain a list of configurations (combinations of treatment and seed) to be run. (Here, first two are shown.)
+```{r}
+head(sim$todo(), 2)
+```
+
+We can now execute this setup. It will print a summary of the results of each run.
+```{r}
+sim$run()
+```
+
+Looks like all configurations failed, because the worker nodes
+can't find the variable `a`. Let's export it to the worker nodes and try again:
+```{r}
+sim$export_vars("a")
+sim$run()
+```
+
+We have new errors. Most of the nodes complain that we haven't
+loaded the `rlang` package. Let's fix that:
+```{r}
+sim$setup({library(rlang)})
+sim$run()
+```
+
+Some runs have succeeded. Here's what the individual run output files look like:
+```{r}
+list.files(outdir, recursive = TRUE)
+```
+
+Notice that they are split up into subdirectories. This improves
+performance on some file systems. It can be controlled by the
+`$options(split=)` setting.
+
+If we run again, successful runs will be skipped:
+```{r}
+sim$run()
+```
+
+At any time, we can obtain the data frame of successful runs. If your
+configuration or output data structure is more complex, you may need
+to use custom functions for `result_df()`.
+```{r}
+sim$result_df()
+```
+
+The remaining errors are more subtle. We can examine the
+configurations still to be done to see which did not succeed? (First
+two are shown here.)
+```{r}
+head(sim$todo(), 2)
+```
+
+Alternatively, we can have the unsuccessful runs saved and inspect them:
+```{r}
+sim$options(error = "save")
+sim$run()
+head(sim$erred(), 2)
+```
+
+In fact, we can easily test-run the function to reproduce the error:
+```{r, error = TRUE}
+errcfg <- sim$erred()[[1]]
+# debugonce(f) # to step through it
+set.seed(errcfg$seed)
+do.call(f, errcfg$treatment)
+```
+
+Let's say that based on the above, we were able to fix the bug. Our new functions is as follows:
+```{r}
+f <- function(x, y) {
+  p <- x*y
+  u <- runif(1)
+  dbl(p = p, u = u)
+}
+```
+
+Replace the worker function, clear the erred outputs, and run again.
+```{r}
+sim$worker(f)$clean()$run()
+```
+
+Now, we have all 24 combinations!
+```{r}
+sim$result_df()
+```
+
+Lastly, suppose that we want to run additional 2 replications of
+each treatment combination. We can pick up where we left off:
+```{r}
+sim$nrep(5)
+sim$run()
+sim$result_df()
+```
