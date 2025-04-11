@@ -52,12 +52,10 @@ sim$ # Set up the following simulation study:
   cluster(2)$
 # a factorial design with x = 1, 2 and y = 1, 3, 9, 27;
   factorial(x = 2^(0:1), y = 3^(0:3))$
-# with 3 replications per combination of x and y
+# with 3 replications per combination of x and y;
   nrep(3)$
-# calling a function of x and y;
-  worker(f)$
-# and using one level of directory splitting.
-  options(split = 1)
+# calling a function of x and y.
+  worker(f)
 
 # What do we still need to run? (First 2 shown.)
 head(sim$todo(), 2)
@@ -66,7 +64,7 @@ head(sim$todo(), 2)
 sim$run()
 
 # Looks like all configurations failed, because the worker nodes
-# can't find variable a. Let's export it to worker nodes and try again.
+# can't find the variable `a`. Let's export it to worker nodes and try again.
 sim$export_vars("a")
 sim$run()
 
@@ -75,7 +73,10 @@ sim$run()
 sim$setup({library(rlang)})
 sim$run()
 
-# Here's what the individual run files look like:
+# Here's what the individual run output files look like. Note that
+# they are split up into subdirectories. This improves performance
+# on some file systems. It can be controlled by the
+# $options(split=) setting.
 list.files(outdir, recursive = TRUE)
 
 # If we run again, successful runs will be skipped.
@@ -83,8 +84,8 @@ sim$run()
 
 # Data frame of successful runs. If your configuration or output
 # data structure is more complex, you may need to use custom
-# functions for collate().
-sim$collate()
+# functions for result_df().
+sim$result_df()
 
 # The remaining errors are more subtle. Which configurations did
 # not succeed? (First 2 shown.)
@@ -114,14 +115,14 @@ f <- function(x, y) {
 sim$worker(f)$clean()$run()
 
 # Now, we have all 24 combinations!
-sim$collate()
+sim$result_df()
 
 # Lastly, suppose that we want to run additional 2 replications of
 # each treatment combination. We can pick up where we left off.
 sim$nrep(5)
 sim$run()
 
-sim$collate()
+sim$result_df()
 
 }
 \section{Methods}{
@@ -138,7 +139,8 @@ sim$collate()
 \item \href{#method-Piecemeal-seeds}{\code{Piecemeal$seeds()}}
 \item \href{#method-Piecemeal-run}{\code{Piecemeal$run()}}
 \item \href{#method-Piecemeal-todo}{\code{Piecemeal$todo()}}
-\item \href{#method-Piecemeal-collate}{\code{Piecemeal$collate()}}
+\item \href{#method-Piecemeal-result_list}{\code{Piecemeal$result_list()}}
+\item \href{#method-Piecemeal-result_df}{\code{Piecemeal$result_df()}}
 \item \href{#method-Piecemeal-reset}{\code{Piecemeal$reset()}}
 \item \href{#method-Piecemeal-clean}{\code{Piecemeal$clean()}}
 \item \href{#method-Piecemeal-erred}{\code{Piecemeal$erred()}}
@@ -337,16 +339,35 @@ List the configurations still to be run.
 }
 
 \subsection{Returns}{
-A list of lists with arguments to the worker functions; also an attribute \code{"done"} giving the number of configurations skipped because they are already done.
+A list of lists with arguments to the worker functions and worker-specific configuration settings; also an attribute \code{"done"} giving the number of configurations skipped because they are already done.
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Piecemeal-collate"></a>}}
-\if{latex}{\out{\hypertarget{method-Piecemeal-collate}{}}}
-\subsection{Method \code{collate()}}{
+\if{html}{\out{<a id="method-Piecemeal-result_list"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-result_list}{}}}
+\subsection{Method \code{result_list()}}{
+Scan through the results files and collate them into a list.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$result_list()}\if{html}{\out{</div>}}
+}
+
+\subsection{Returns}{
+A list of lists containing the contents of the result files.
+\describe{
+\item{\code{config}}{list of configuration settings, including the random seed and the output file name}
+\item{\code{treatment}}{arguments passed to the worker}
+\item{\code{OK}}{whether the worker succeeded or produced an error}
+\item{\code{rds}}{the path to the RDS file}
+}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-result_df"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-result_df}{}}}
+\subsection{Method \code{result_df()}}{
 Scan through the results files and collate them into a data frame.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$collate(trt_tf = identity, out_tf = identity)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$result_df(trt_tf = identity, out_tf = identity)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -363,6 +384,7 @@ A data frame with columns corresponding to the values returned by \code{trt_tf} 
 \item{\code{.trt_hash}}{the hash of the treatment configuration.}
 \item{\code{.rds}}{the path to the RDS file}
 }
+Runs that erred are filtered out.
 }
 }
 \if{html}{\out{<hr>}}
@@ -386,7 +408,7 @@ Clear the simulation results so far.
 \if{html}{\out{<a id="method-Piecemeal-clean"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-clean}{}}}
 \subsection{Method \code{clean()}}{
-Delete the result files for which the worker function failed.
+Delete the result files for which the worker function failed and/or for which the files were corrupted.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Piecemeal$clean()}\if{html}{\out{</div>}}
 }
@@ -408,13 +430,13 @@ List the configurations for which the worker function failed.
 \subsection{Method \code{options()}}{
 Set miscellaneous options.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$options(split = 0L, error = c("skip", "save"))}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$options(split = c(1L, 1L), error = c("skip", "save"))}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{split}}{whether the output files should be split up into subdirectories and how deeply; this can improve performance on some file systems.}
+\item{\code{split}}{a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.}
 
 \item{\code{error}}{how to handle worker errors:\describe{
 \item{\code{"skip"}}{return the error message as a part of \code{run()}'s return value, but do not save the RDS file; the next \code{run()} will attempt to run the worker for that configuration and seed again;}

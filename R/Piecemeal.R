@@ -43,12 +43,10 @@
 #'   cluster(2)$
 #' # a factorial design with x = 1, 2 and y = 1, 3, 9, 27;
 #'   factorial(x = 2^(0:1), y = 3^(0:3))$
-#' # with 3 replications per combination of x and y
+#' # with 3 replications per combination of x and y;
 #'   nrep(3)$
-#' # calling a function of x and y;
-#'   worker(f)$
-#' # and using one level of directory splitting.
-#'   options(split = 1)
+#' # calling a function of x and y.
+#'   worker(f)
 #'
 #' # What do we still need to run? (First 2 shown.)
 #' head(sim$todo(), 2)
@@ -57,7 +55,7 @@
 #' sim$run()
 #'
 #' # Looks like all configurations failed, because the worker nodes
-#' # can't find variable a. Let's export it to worker nodes and try again.
+#' # can't find the variable `a`. Let's export it to worker nodes and try again.
 #' sim$export_vars("a")
 #' sim$run()
 #'
@@ -66,7 +64,10 @@
 #' sim$setup({library(rlang)})
 #' sim$run()
 #'
-#' # Here's what the individual run files look like:
+#' # Here's what the individual run output files look like. Note that
+#' # they are split up into subdirectories. This improves performance
+#' # on some file systems. It can be controlled by the
+#' # $options(split=) setting.
 #' list.files(outdir, recursive = TRUE)
 #'
 #' # If we run again, successful runs will be skipped.
@@ -74,8 +75,8 @@
 #'
 #' # Data frame of successful runs. If your configuration or output
 #' # data structure is more complex, you may need to use custom
-#' # functions for collate().
-#' sim$collate()
+#' # functions for result_df().
+#' sim$result_df()
 #'
 #' # The remaining errors are more subtle. Which configurations did
 #' # not succeed? (First 2 shown.)
@@ -105,17 +106,18 @@
 #' sim$worker(f)$clean()$run()
 #'
 #' # Now, we have all 24 combinations!
-#' sim$collate()
+#' sim$result_df()
 #'
 #' # Lastly, suppose that we want to run additional 2 replications of
 #' # each treatment combination. We can pick up where we left off.
 #' sim$nrep(5)
 #' sim$run()
 #'
-#' sim$collate()
+#' sim$result_df()
 #'
 #' @import parallel
 #' @importFrom rlang hash
+#' @import purrr
 #' @importFrom R6 R6Class
 #' @export
 Piecemeal <- R6Class("Piecemeal",
@@ -127,8 +129,10 @@ Piecemeal <- R6Class("Piecemeal",
     .worker = NULL,
     .seeds = NULL,
     .cl_vars = NULL,
-    .split = 0L,
-    .error = "skip"),
+    .split = c(1L, 1L),
+    .error = "skip",
+    .done = function() list.files(private$.outdir, ".*\\.rds", full.names = TRUE, recursive = TRUE)
+  ),
 
   public = list(
 
@@ -186,9 +190,10 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param .filter a function that takes the same arguments as worker and returns `FALSE` if the treatment configuration should be skipped; defaults to accepting all configurations.
     #' @param .add whether the new treatment configurations should be added to the current list (if `TRUE`, the default) or replace it (if `FALSE`.
     factorial = function(..., .filter = function(...) TRUE, .add = TRUE) {
-      treatments <- expand.list(...)
-      treatments <- treatments[vapply(treatments, function(x) do.call(.filter, x), FALSE)]
-      self$treatments(treatments, .add = .add)
+      expand.list(...) |>
+        keep(.filter) |>
+        self$treatments(.add = .add)
+
       invisible(self)
     },
 
@@ -230,30 +235,51 @@ Piecemeal <- R6Class("Piecemeal",
       message(sprintf("Starting %d runs. (%d already done.)", length(configs), done <- attr(configs, "done")))
 
       if(shuffle) configs <- configs[sample.int(length(configs))]
-      
 
       statuses <- simplify2array(
-        if(is.null(cl)) lapply(configs, run_config, split = private$.split, error = private$.error, worker = private$.worker, outdir = private$.outdir)
-        else clusterApplyLB(cl, configs, run_config, split = private$.split, error = private$.error)
+        if(is.null(cl)) lapply(configs, run_config, error = private$.error, worker = private$.worker, outdir = private$.outdir)
+        else clusterApplyLB(cl, configs, run_config, error = private$.error)
       )
 
-      s <- c(if(length(statuses)) statuses |> strsplit("\n", fixed = TRUE) |> vapply(`[`, "", -1L),
-             rep("SKIPPED", done)) |>
-        table() |> as.data.frame() |> setNames(c("Status", "Runs")) |> capture.output() |> paste(collapse = "\n") |> message()
+      c(
+        if(length(statuses)) statuses |> strsplit("\n", fixed = TRUE) |> vapply(`[`, "", -1L),
+        rep("SKIPPED", done)
+      ) |>
+        table() |> as.data.frame() |> setNames(c("Status", "Runs")) |>
+        capture.output() |> paste(collapse = "\n") |> message()
 
       if(length(statuses)) invisible(statuses) else character(0)
     },
 
     #' @description List the configurations still to be run.
-    #' @return A list of lists with arguments to the worker functions; also an attribute `"done"` giving the number of configurations skipped because they are already done.
+    #' @return A list of lists with arguments to the worker functions and worker-specific configuration settings; also an attribute `"done"` giving the number of configurations skipped because they are already done.
     todo = function() {
-      done <- basename(list.files(private$.outdir, ".*\\.rds", full.names = FALSE, recursive = TRUE))
       configs <- expand.list(seed = private$.seeds,
                              treatment = if(length(private$.treatments)) private$.treatments
                                          else list(add_hash(list())))
-      configfn <- vapply(configs, config_fn, "")
-      configs <- Map(function(conf, fn) c(conf, list(fn = fn)), configs, configfn)
-      structure(configs[! configfn %in% done], done = sum(configfn %in% done))
+      fn <- map_chr(configs, config_fn)
+      done <- fn %in% basename(private$.done())
+      configs <- configs[!done]
+      fn <- fn[!done]
+
+      subdirs <- map(configs, config_subdir, split = private$.split)
+      configs <- Map(function(conf, fn, subdirs) c(conf, list(fn = fn, subdirs = subdirs)), configs, fn, subdirs)
+      structure(configs, done = sum(done))
+    },
+
+    #' @description Scan through the results files and collate them into a list.
+    #' @return A list of lists containing the contents of the result files.
+    #' \describe{
+    #' \item{`config`}{list of configuration settings, including the random seed and the output file name}
+    #' \item{`treatment`}{arguments passed to the worker}
+    #' \item{`OK`}{whether the worker succeeded or produced an error}
+    #' \item{`rds`}{the path to the RDS file}
+    #' }
+    result_list = function() {
+      lapply(private$.done(), function(fn) {
+        o <- safe_readRDS(fn, verbose = TRUE)
+        list(config = o$config[names(o$config) != "treatment"], treatment = o$config$treatment, OK = o$OK, rds = fn)
+      })
     },
 
     #' @description Scan through the results files and collate them into a data frame.
@@ -264,26 +290,21 @@ Piecemeal <- R6Class("Piecemeal",
     #' \item{`.trt_hash`}{the hash of the treatment configuration.}
     #' \item{`.rds`}{the path to the RDS file}
     #' }
-    collate = function(trt_tf = identity, out_tf = identity) {
-      done <- list.files(private$.outdir, ".*\\.rds", full.names = TRUE, recursive = TRUE)
+    #' Runs that erred are filtered out.
+    result_df = function(trt_tf = identity, out_tf = identity) {
+      l <- self$result_list() |>
+        compact(\(x) x$config)
 
-      l <- lapply(done, function(fn) {
-        o <- try(readRDS(fn))
-        if(inherits(o, "try-error")){
-          message("Run file ", sQuote(fn), " corrupted. This should never happen.")
-          return(NULL)
-        }
+      OK <- map_lgl(l, "OK")
+      if(!all(OK)) message(sprintf("%d/%d runs had returned an error.", sum(!OK), length(OK)))
+      l <- l[OK]
 
-        if(o$OK)
-          as.data.frame(c(list(),
-            trt_tf(o$config$treatment), out_tf(o$output),
-            list(.seed = o$config$seed, .trt_hash = attr(o$config$treatment, "hash"), .rds = fn)))
-        else NULL
-      })
-      erred <- vapply(l, is.null, FALSE)
-      if(any(erred)) message(sprintf("%d/%d runs had returned an error.", sum(erred), length(erred)))
-      l <- l[!erred]
-      do.call(rbind, l)
+      map(l, function(o) {
+        as.data.frame(c(list(),
+                        trt_tf(o$treatment), out_tf(o$output),
+                        list(.seed = o$config$seed, .trt_hash = attr(o$treatment, "hash"), .rds = o$rds)))
+      }) |>
+        do.call(rbind, args = _)
     },
 
     #' @description Clear the simulation results so far.
@@ -300,36 +321,32 @@ Piecemeal <- R6Class("Piecemeal",
       invisible(self)
     },
 
-    #' @description Delete the result files for which the worker function failed.
+    #' @description Delete the result files for which the worker function failed and/or for which the files were corrupted.
     clean = function() {
-      done <- list.files(private$.outdir, ".*\\.rds", full.names = TRUE, recursive = TRUE)
-
-      erred <- vapply(done, function(fn) !readRDS(fn)$OK, FALSE)
-      unlink(done[erred])
-      message(sprintf("%d/%d runs deleted.", sum(erred), length(erred)))
+      done <- private$.done()
+      OK <- done |> map(safe_readRDS) |> map_lgl("OK")
+      unlink(done[!OK])
+      message(sprintf("%d/%d runs deleted.", sum(!OK), length(OK)))
       invisible(self)
     },
 
     #' @description List the configurations for which the worker function failed.
     erred = function() {
-      done <- list.files(private$.outdir, ".*\\.rds", full.names = TRUE, recursive = TRUE)
-      l <- lapply(done, function(fn){
-        x <- readRDS(fn)
-        if(!x$OK) x$config
-      })
-      OK <- vapply(l, is.null, FALSE)
-      l[!OK]
+      private$.done() |>
+        map(safe_readRDS) |>
+        map(\(o) if(!o$OK) o$config) |>
+        compact()
     },
 
     #' @description Set miscellaneous options.
-    #' @param split whether the output files should be split up into subdirectories and how deeply; this can improve performance on some file systems.
+    #' @param split a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.
     #' @param error how to handle worker errors:\describe{
     #' \item{`"skip"`}{return the error message as a part of `run()`'s return value, but do not save the RDS file; the next `run()` will attempt to run the worker for that configuration and seed again;}
     #' \item{`"save"`}{save the seed, the configuration, and the status, preventing future runs until the file is cleared.}
     #' }
-    options = function(split = 0L, error = c("skip", "save")) {
-      if(!missing(split)) private$.split = split
-      if(!missing(error)) private$.error = match.arg(error)
+    options = function(split = c(1L, 1L), error = c("skip", "save")) {
+      if(!missing(split)) private$.split <- rep_len(split, 2L)
+      if(!missing(error)) private$.error <- match.arg(error)
       invisible(self)
     }
     
@@ -341,16 +358,38 @@ add_hash <- function(x) {
   structure(x, hash = rlang::hash(x))
 }
 
-config_fn <- function(config, split = 0L) {
+config_fn <- function(config) {
   paste(attr(config$treatment, "hash"), config$seed, "rds", sep = ".")
 }
 
-run_config <- function(config, split, error, worker = NULL, outdir = NULL) {
+by2char <- function(s, n, where = c("start", "end")) {
+  start <- switch(match.arg(where),
+                  start = 0L,
+                  end = nchar(s) - n * 2L)
+  map_chr(seq_len(n), \(i) substr(s, start + i*2L - 1L, start + i*2L))
+}
+
+config_subdir <- function(config, split = c(0L, 0L)) {
+  hash <- attr(config$treatment, "hash")
+  seed <- as.character(config$seed)
+  subdirs <- if(split[1L]) by2char(hash, split[1L], "start")
+  c(subdirs, if(split[2L]) by2char(seed, split[2L], "end"))
+}
+
+safe_readRDS <- function(file, ..., verbose = FALSE) {
+  tryCatch(readRDS(file, ...),
+           error = function(e) {
+             if(verbose) message("Run file ", sQuote(file), " is corrupted. This should never happen.")
+             list(config = NULL, output = NULL, OK = FALSE)
+           })
+}
+
+run_config <- function(config, error, worker = NULL, outdir = NULL) {
   if(is.null(worker)) worker <- get(".worker", .GlobalEnv)
   if(is.null(outdir)) outdir <- get(".outdir", .GlobalEnv)
 
   fn <- config$fn
-  subdirs <- if(split) sapply(seq_len(split), function(i) substr(fn, i*2L - 1L, i*2L))
+  subdirs <- config$subdirs
   dn <- do.call(file.path, c(list(outdir), subdirs))
   dir.create(dn, recursive = TRUE, showWarnings = FALSE)
   fn <- file.path(dn, fn)

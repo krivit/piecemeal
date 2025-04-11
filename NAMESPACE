@@ -2,6 +2,7 @@
 
 export(Piecemeal)
 import(parallel)
+import(purrr)
 importFrom(R6,R6Class)
 importFrom(rlang,hash)
 useDynLib(piecemeal)
