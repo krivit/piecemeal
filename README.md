@@ -24,7 +24,7 @@ You can install the development version of `piecemeal` from [GitHub](https://git
 
 ``` r
 # install.packages("remotes")
-remotes::install_github("krivit/piecemeal")
+remotes::install_github("krivit/piecemeal", build_vignettes = TRUE)
 ```
 
 ## Example
