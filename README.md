@@ -7,7 +7,7 @@
 [![CRAN status](https://www.r-pkg.org/badges/version/piecemeal)](https://CRAN.R-project.org/package=piecemeal)
 <!-- badges: end -->
 
-This package grew out of a common problem of running a simulation with large numbers of treatment combinations and replications on a shared computing cluster. Using available tools such as \pkg{parallel} and even \CRANpkg{foreach} can be frustrating for a number of reasons:
+This package grew out of a common problem of running a simulation with large numbers of treatment combinations and replications on a shared computing cluster. Using available tools such as `parallel` and even `foreach` can be frustrating for a number of reasons:
 
 * If any of the function runs results in an error, all results are lost.
 * Tracking down which configuration resulted in an error and reproducing it can be frustrating, and if the fix does not fix all the errors, one has to start over.
@@ -16,7 +16,7 @@ This package grew out of a common problem of running a simulation with large num
 
 Those package with fault-tolerance capabilities typically focus on crashing worker nodes.
 
-This can be worked around in a variety of ways. Functions can be wrapped in [try()]. Rather than returning the result to the manager process, the worker can save its results to a unique file, with the results collated at the end. [`Piecemeal`] automates this, and keeps careful track of inputs and random seeds, ensuring that problematic realisations can be located and debugged quickly and efficiently. A locking system even makes it possible to have multiple jobs running the same study on the same cluster without interfering with each other.
+This can be worked around in a variety of ways. Functions can be wrapped in `try()`. Rather than returning the result to the manager process, the worker can save its results to a unique file, with the results collated at the end. `Piecemeal` automates this, and keeps careful track of inputs and random seeds, ensuring that problematic realisations can be located and debugged quickly and efficiently. A locking system even makes it possible to have multiple jobs running the same study on the same cluster without interfering with each other.
 
 ## Installation
 
