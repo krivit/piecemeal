@@ -294,7 +294,7 @@ Piecemeal <- R6Class("Piecemeal",
     print = function(...) {
       cat("A Piecemeal simulation\n")
       cat("Output directory:", private$.outdir, "\n")
-      cat("\nDesign:", length(private$.treatments), "treatment configurations by", length(private$.seeds), "seeds =", length(private$.treatments)*length(private$.seeds), "runs\n")
+      cat("\nDesign:", max(1, length(private$.treatments)), "treatment configurations by", length(private$.seeds), "seeds =", max(1, length(private$.treatments)) * length(private$.seeds), "runs\n")
 
       if(is.null(private$.cl_setup)) cat("\nNo cluster set up.\n")
       else{
@@ -324,7 +324,7 @@ Piecemeal <- R6Class("Piecemeal",
       cat("  directory split:", private$.split[1], "level(s) by treatment and", private$.split[2], "level(s) by seed\n")
       cat("  errored runs:", private$.error, "\n\n")
 
-      cat("Ready to execute?", if(length(private$.treatments) && length(private$.seeds) && length(private$.worker)) "Yes." else "No.", "\n")
+      cat("Ready to execute?", if(length(private$.seeds) && length(private$.worker)) "Yes." else "No.", "\n")
     },
 
     #' @description Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, and the errors encountered.
@@ -337,7 +337,7 @@ Piecemeal <- R6Class("Piecemeal",
         else trimws(o$output) # the error message
         )
 
-      total <- length(private$.treatments) * length(private$.seeds)
+      total <- max(1, length(private$.treatments)) * length(private$.seeds)
       Result <- c(Result, rep_len("ToDo", total - length(l)))
 
       o <- table(Result)
