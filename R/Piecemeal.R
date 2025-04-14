@@ -61,7 +61,33 @@ Piecemeal <- R6Class("Piecemeal",
     .split = c(1L, 1L),
     .error = "auto",
     .toclean = FALSE,
-    .done = function() list.files(private$.outdir, ".*\\.rds", full.names = TRUE, recursive = TRUE)
+    .done = function() list.files(private$.outdir, ".*\\.rds", full.names = TRUE, recursive = TRUE),
+    .check_args = function(which = TRUE) {
+      if(length(private$.treatments)) {
+        for(i in seq_along(private$.treatments)[which]) {
+          treatment <- private$.treatments[[i]]
+          if(".seed" %in% names(treatment))
+            stop("In treatment configuration ", i, " argument ", sQuote(".seed"), " is reserved by ", sQuote("Piecemeal"), " if you wish to provide your own seed, use a different argument name.")
+          astart <- if(".seed" %in% names(formals(private$.worker))) list("", ".seed") else list("")
+
+          tryCatch(match.call(private$.worker, as.call(c(astart, treatment))),
+                   error = function(e){
+                     e$message <- paste0(e$message, " in treatment configuration ", i)
+                     e$call <- NULL
+                     stop(e)
+                   })
+        }
+      } else {
+        astart <- if(".seed" %in% names(formals(private$.worker))) list("", ".seed") else list("")
+
+        tryCatch(match.call(private$.worker, as.call(astart)),
+                 error = function(e){
+                   e$message <- paste0(e$message, " in treatment configuration ", i)
+                   e$call <- NULL
+                   stop(e)
+                 })
+      }
+    }
   ),
 
   public = list(
@@ -148,6 +174,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @return Invisibly, a character vector with an element for each seed and treatment configuration combination attempted, indicating its file name and status, including errors.
     run = function(shuffle = TRUE) {
       if(private$.toclean) self$clean()
+      private$.check_args()
 
       cl <- private$.cl_setup
       if(!is.null(cl) && !is(cl, "cluster")) {
@@ -324,7 +351,7 @@ Piecemeal <- R6Class("Piecemeal",
       cat("  directory split:", private$.split[1], "level(s) by treatment and", private$.split[2], "level(s) by seed\n")
       cat("  errored runs:", private$.error, "\n\n")
 
-      cat("Ready to execute?", if(length(private$.seeds) && length(private$.worker)) "Yes." else "No.", "\n")
+      cat("Ready to execute?", if(!inherits(try(private$.check_args()), "try-error") && length(private$.seeds) && length(private$.worker)) "Yes." else "No.", "\n")
     },
 
     #' @description Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, and the errors encountered.
