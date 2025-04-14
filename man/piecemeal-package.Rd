@@ -4,9 +4,9 @@
 \name{piecemeal-package}
 \alias{piecemeal}
 \alias{piecemeal-package}
-\title{piecemeal: Parallelise large simulations in a resumable manner}
+\title{piecemeal: A package for wrangling large simulations}
 \description{
-The goal of piecemeal is to simplify running simulation studies made up of many relatively small replications and treatment configurations in a setting (such as a shared a computing cluster) in which the parallel processing may be interrupted due to time limits, errors, or for other reasons.
+The goal of 'piecemeal' is to simplify running simulation studies made up of many relatively small replications and treatment configurations in a setting (such as a shared a computing cluster) in which the parallel processing may be interrupted due to time limits, errors, or for other reasons.
 }
 \details{
 This package grew out of a common problem of running a simulation with large numbers of treatment combinations and replications on a shared computing cluster. Using available tools such as \pkg{parallel} and even \CRANpkg{foreach} can be frustrating for a number of reasons:
