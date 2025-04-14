@@ -72,6 +72,7 @@ sim$result_df()
 \item \href{#method-Piecemeal-erred}{\code{Piecemeal$erred()}}
 \item \href{#method-Piecemeal-options}{\code{Piecemeal$options()}}
 \item \href{#method-Piecemeal-print}{\code{Piecemeal$print()}}
+\item \href{#method-Piecemeal-summary}{\code{Piecemeal$summary()}}
 \item \href{#method-Piecemeal-clone}{\code{Piecemeal$clone()}}
 }
 }
@@ -134,7 +135,10 @@ Specify variables to be copied from the manager node to the worker nodes' global
 \subsection{Method \code{setup()}}{
 Specify code to be run on each worker node at the start of the simulation.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$setup(expr)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$setup(
+  expr = {
+ }
+)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -358,7 +362,7 @@ List the configurations for which the worker function failed.
 \subsection{Method \code{options()}}{
 Set miscellaneous options.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$options(split = c(1L, 1L), error = c("skip", "save"))}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$options(split = c(1L, 1L), error = c("auto", "save", "skip"))}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -367,8 +371,9 @@ Set miscellaneous options.
 \item{\code{split}}{a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.}
 
 \item{\code{error}}{how to handle worker errors:\describe{
-\item{\code{"skip"}}{return the error message as a part of \code{run()}'s return value, but do not save the RDS file; the next \code{run()} will attempt to run the worker for that configuration and seed again;}
-\item{\code{"save"}}{save the seed, the configuration, and the status, preventing future runs until the file is cleared.}
+\item{\code{"save"}}{save the seed, the configuration, and the status, preventing future runs until the file is using \code{Piecemeal$clean()}.}
+\item{\code{"skip"}}{return the error message as a part of \code{run()}'s return value, but do not save the RDS file; the next \code{run()} will attempt to run the worker for that configuration and seed again.}
+\item{\code{"auto"}}{(default) as \code{"save"}, but if any of the methods that change how each configuration is run (i.e., \verb{$worker()}, \verb{$setup()}, and \verb{$export_vars()}) is called, \verb{$clean()} will be called automatically before the next \verb{$run()}.}
 }}
 }
 \if{html}{\out{</div>}}
@@ -383,6 +388,30 @@ Print the current simulation settings, including whether there is enough informa
 \if{html}{\out{<div class="r">}}\preformatted{Piecemeal$print(...)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{additional arguments, currently unused.}
+}
+\if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-summary"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-summary}{}}}
+\subsection{Method \code{summary()}}{
+Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, and the errors encountered.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$summary(...)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{...}}{additional arguments, currently unused.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-clone"></a>}}

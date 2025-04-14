@@ -16,7 +16,8 @@ knitr::opts_chunk$set(
 ```
 
 Suppose that we want to simulate a function of two variables, $x$ and
-$y$, for $x = 1, 2$ and $y = 1, 3, 9, 27$.
+$y$, for every combination of $x = 1, 2$ and $y = 1, 3, 9, 27$, in a
+factorial design.
 
 The function ultimately returns $x\times y$ and a random number
 between 0 and 1, but to get there, it relies on an external constant
@@ -43,7 +44,7 @@ f <- function(x, y) {
 }
 ```
 
-We begin by setting the directory for run outputs. We will use R's temporary directory:
+We begin by setting the directory for run results. We will use R's temporary directory:
 ```{r}
 outdir <- file.path(tempdir(), "piecemeal_demo")
 ```
@@ -53,12 +54,12 @@ Initialise the `Piecemeal` object.
 sim <- piecemeal::Piecemeal$new(outdir)
 ```
 
-The following will clear the simulation outputs. Called without arguments, it will ask for confirmation first.
+The following will clear all simulation results. Called without arguments, it will ask for confirmation first.
 ```{r}
 sim$reset(FALSE)
 ```
 
-The cluster has 2 nodes. We can also pass a cluster object:
+The cluster has 2 nodes. (We could also pass a preexisting `cluster` object.)
 ```{r}
 sim$cluster(2)
 ```
@@ -70,7 +71,7 @@ Use 3 replications per combination of $x$ and $y$:
 ```{r}
 sim$nrep(3)
 ```
-Set the calling a function of x and y:
+Set the function to be called for each treatment combination:
 ```{r}
 sim$worker(f)
 ```
@@ -99,8 +100,15 @@ We can now execute this setup. It will print a summary of the results of each ru
 sim$run()
 ```
 
-Looks like all configurations failed, because the worker nodes
-can't find the variable `a`. Let's export it to the worker nodes and try again:
+We can view this summary any time as well.
+```{r}
+summary(sim) # or sim$summary()
+```
+
+Looks like all configurations failed, because the worker nodes can't
+find the variable `a`. Let's export it to the worker nodes, and try
+again. This will also automatically clear the failed runs next time we
+run the simulation.
 ```{r}
 sim$export_vars("a")
 sim$run()
@@ -129,22 +137,14 @@ sim$run()
 
 At any time, we can obtain the data frame of successful runs. If your
 configuration or output data structure is more complex, you may need
-to use custom functions for `result_df()`.
+to use custom functions for `$result_df()` or use `$result_list()` instead.
 ```{r}
 sim$result_df()
 ```
 
-The remaining errors are more subtle. We can examine the
-configurations still to be done to see which did not succeed? (First
-two are shown here.)
+The remaining errors are more subtle. We can see which treatments and
+seeds led to unsuccessful runs:
 ```{r}
-head(sim$todo(), 2)
-```
-
-Alternatively, we can have the unsuccessful runs saved and inspect them:
-```{r}
-sim$options(error = "save")
-sim$run()
 head(sim$erred(), 2)
 ```
 
@@ -171,10 +171,11 @@ sim$worker(f)
 sim
 ```
 
-Now, clear the erred outputs, and run again.
+Run again:
 ```{r}
-sim$clean()$run()
+sim$run()
 ```
+Success!
 
 We have all 24 combinations!
 ```{r}

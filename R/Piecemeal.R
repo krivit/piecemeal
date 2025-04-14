@@ -59,7 +59,8 @@ Piecemeal <- R6Class("Piecemeal",
     .seeds = NULL,
     .cl_vars = NULL,
     .split = c(1L, 1L),
-    .error = "skip",
+    .error = "auto",
+    .toclean = FALSE,
     .done = function() list.files(private$.outdir, ".*\\.rds", full.names = TRUE, recursive = TRUE)
   ),
 
@@ -84,6 +85,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param varlist a character vector with variable names.
     #' @param .add whether the new variables should be added to the current list (if `TRUE`, the default) or replace it (if `FALSE`).
     export_vars = function(varlist, .add = TRUE) {
+      if(private$.error == "auto") private$.toclean <- TRUE
       if(!.add) private$.cl_vars <- NULL
       private$.cl_vars <- unique(c(private$.cl_vars, varlist))
       invisible(self)
@@ -91,8 +93,8 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description Specify code to be run on each worker node at the start of the simulation.
     #' @param expr an expression; if passed, replaces the previous expression; if empty, resets it to nothing.
-    setup = function(expr) {
-      if(missing(expr)) private$.setup <- {}
+    setup = function(expr = {}) {
+      if(private$.error == "auto") private$.toclean <- TRUE
       private$.setup <- substitute(expr)
       invisible(self)
     },
@@ -100,6 +102,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Specify the function to be run for each treatment configuration.
     #' @param fun a function whose arguments are specified by `$treatments()` and `$factorial()`; if it has `.seed` as a named argument, the seed will be passed as well.
     worker = function(fun) {
+      if(private$.error == "auto") private$.toclean <- TRUE
       private$.worker <- fun
       invisible(self)
     },
@@ -144,6 +147,8 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param shuffle Should the treatment configurations be run in a random order (`TRUE`, the default) or in the order in which they were added (`FALSE`)?
     #' @return Invisibly, a character vector with an element for each seed and treatment configuration combination attempted, indicating its file name and status, including errors.
     run = function(shuffle = TRUE) {
+      if(private$.toclean) self$clean()
+
       cl <- private$.cl_setup
       if(!is.null(cl) && !is(cl, "cluster")) {
         cl <- do.call(makeCluster, cl)
@@ -177,7 +182,7 @@ Piecemeal <- R6Class("Piecemeal",
         table() |> as.data.frame() |> setNames(c("Status", "Runs")) |>
         capture.output() |> paste(collapse = "\n") |> message()
 
-      if(length(statuses)) invisible(statuses) else character(0)
+      invisible(if(length(statuses)) statuses else character(0))
     },
 
     #' @description List the configurations still to be run.
@@ -255,10 +260,11 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description Delete the result files for which the worker function failed and/or for which the files were corrupted.
     clean = function() {
+      private$.toclean <- FALSE
       done <- private$.done()
       OK <- done |> map(safe_readRDS) |> map_lgl("OK")
       unlink(done[!OK])
-      message(sprintf("%d/%d runs deleted.", sum(!OK), length(OK)))
+      if(any(!OK)) message(sprintf("%d failed runs deleted.", sum(!OK)))
       invisible(self)
     },
 
@@ -273,16 +279,18 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Set miscellaneous options.
     #' @param split a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.
     #' @param error how to handle worker errors:\describe{
-    #' \item{`"skip"`}{return the error message as a part of `run()`'s return value, but do not save the RDS file; the next `run()` will attempt to run the worker for that configuration and seed again;}
-    #' \item{`"save"`}{save the seed, the configuration, and the status, preventing future runs until the file is cleared.}
+    #' \item{`"save"`}{save the seed, the configuration, and the status, preventing future runs until the file is using `Piecemeal$clean()`.}
+    #' \item{`"skip"`}{return the error message as a part of `run()`'s return value, but do not save the RDS file; the next `run()` will attempt to run the worker for that configuration and seed again.}
+    #' \item{`"auto"`}{(default) as `"save"`, but if any of the methods that change how each configuration is run (i.e., `$worker()`, `$setup()`, and `$export_vars()`) is called, `$clean()` will be called automatically before the next `$run()`.}
     #' }
-    options = function(split = c(1L, 1L), error = c("skip", "save")) {
+    options = function(split = c(1L, 1L), error = c("auto", "save", "skip")) {
       if(!missing(split)) private$.split <- rep_len(split, 2L)
       if(!missing(error)) private$.error <- match.arg(error)
       invisible(self)
     },
 
     #' @description Print the current simulation settings, including whether there is enough information to run it.
+    #' @param ... additional arguments, currently unused.
     print = function(...) {
       cat("A Piecemeal simulation\n")
       cat("Output directory:", private$.outdir, "\n")
@@ -317,9 +325,43 @@ Piecemeal <- R6Class("Piecemeal",
       cat("  errored runs:", private$.error, "\n\n")
 
       cat("Ready to execute?", if(length(private$.treatments) && length(private$.seeds) && length(private$.worker)) "Yes." else "No.", "\n")
+    },
+
+    #' @description Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, and the errors encountered.
+    #' @param ... additional arguments, currently unused.
+    summary = function(...) {
+      l <- self$result_list()
+      Result <- map_chr(l, function(o)
+        if(o$OK) "Done"
+        else if(is.null(o$config)) "Corrupted"
+        else trimws(o$output) # the error message
+        )
+
+      total <- length(private$.treatments) * length(private$.seeds)
+      Result <- c(Result, rep_len("ToDo", total - length(l)))
+
+      o <- table(Result)
+      attr(o, "outdir") <- private$.outdir
+      class(o) <- c("summary.Piecemeal", class(o))
+      o
     }
   )
   )
+
+#' @noRd
+#' @export
+summary.Piecemeal <- function(object, ...) {
+  object$summary(...)
+}
+
+#' @noRd
+#' @export
+print.summary.Piecemeal <- function(x, ...) {
+  cat("A Piecemeal simulation\n")
+  cat("Output directory:", attr(x, "outdir"), "\n\n")
+  print(as.data.frame(x))
+  invisible(x)
+}
 
 add_hash <- function(x) {
   attr(x, "hash") <- NULL
