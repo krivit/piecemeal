@@ -130,7 +130,7 @@ Notice that they are split up into subdirectories. This improves
 performance on some file systems. It can be controlled by the
 `$options(split=)` setting.
 
-If we run again, successful runs will be skipped:
+If we run again, completed runs will be skipped:
 ```{r}
 sim$run()
 ```
