@@ -285,10 +285,11 @@ Scan through the results files and collate them into a list.
 \subsection{Returns}{
 A list of lists containing the contents of the result files.
 \describe{
-\item{\code{config}}{list of configuration settings, including the random seed and the output file name}
 \item{\code{treatment}}{arguments passed to the worker}
+\item{\code{seed}}{the seed set just before calling the worker}
+\item{\code{output}}{value returned by the worker, or \code{try-error}}
 \item{\code{OK}}{whether the worker succeeded or produced an error}
-\item{\code{rds}}{the path to the RDS file}
+\item{\code{config}}{miscellaneous configuration settings such as the file name}
 }
 }
 }
@@ -314,7 +315,7 @@ Scan through the results files and collate them into a data frame.
 A data frame with columns corresponding to the values returned by \code{trt_tf} and \code{out_tf}, with the following additional columns:
 \describe{
 \item{\code{.seed}}{the random seed used.}
-\item{\code{.rds}}{the path to the RDS file.}
+\item{\code{.rds}}{the path to the RDS file (if requested).}
 }
 Runs that erred are filtered out.
 }
@@ -340,11 +341,18 @@ Clear the simulation results so far.
 \if{html}{\out{<a id="method-Piecemeal-clean"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-clean}{}}}
 \subsection{Method \code{clean()}}{
-Delete the result files for which the worker function failed and/or for which the files were corrupted.
+Delete the result files for which the worker function failed and/or for which the files were corrupted, or based on some other predicate.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$clean()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$clean(which = function(res) !res$OK)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{which}}{a function of a result list (see \code{Piecemeal$result_list()}) returning \code{TRUE} if the result file is to be deleted and \code{FALSE} otherwise.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-erred"></a>}}

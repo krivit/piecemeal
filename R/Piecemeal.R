@@ -231,16 +231,14 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Scan through the results files and collate them into a list.
     #' @return A list of lists containing the contents of the result files.
     #' \describe{
-    #' \item{`config`}{list of configuration settings, including the random seed and the output file name}
     #' \item{`treatment`}{arguments passed to the worker}
+    #' \item{`seed`}{the seed set just before calling the worker}
+    #' \item{`output`}{value returned by the worker, or `try-error`}
     #' \item{`OK`}{whether the worker succeeded or produced an error}
-    #' \item{`rds`}{the path to the RDS file}
+    #' \item{`config`}{miscellaneous configuration settings such as the file name}
     #' }
     result_list = function() {
-      lapply(private$.done(), function(fn) {
-        o <- safe_readRDS(fn, verbose = TRUE)
-        list(config = o$config[names(o$config) != "treatment"], output = o$output, treatment = o$config$treatment, OK = o$OK, rds = fn)
-      })
+      map(private$.done(), \(fn) c(safe_readRDS(fn, verbose = TRUE), rds = fn))
     },
 
     #' @description Scan through the results files and collate them into a data frame.
@@ -249,15 +247,14 @@ Piecemeal <- R6Class("Piecemeal",
     #' @return A data frame with columns corresponding to the values returned by `trt_tf` and `out_tf`, with the following additional columns:
     #' \describe{
     #' \item{`.seed`}{the random seed used.}
-    #' \item{`.rds`}{the path to the RDS file.}
+    #' \item{`.rds`}{the path to the RDS file (if requested).}
     #' }
     #' Runs that erred are filtered out.
     result_df = function(trt_tf = identity, out_tf = identity, rds = FALSE) {
       if(identical(trt_tf, I)) trt_tf <- \(x) list(treatment=list(x))
       if(identical(out_tf, I)) out_tf <- \(x) list(output=list(x))
-      l <- self$result_list() |>
-        compact(\(x) x$config)
 
+      l <- self$result_list()
       OK <- map_lgl(l, "OK")
       if(!all(OK)) message(sprintf("%d/%d runs had returned an error.", sum(!OK), length(OK)))
       l <- l[OK]
@@ -265,7 +262,7 @@ Piecemeal <- R6Class("Piecemeal",
       map(l, function(o) {
         structure(c(list(),
                     trt_tf(o$treatment), out_tf(o$output),
-                    list(.seed = o$config$seed), if(rds) list(.rds = o$rds)),
+                    list(.seed = o$seed), if(rds) list(.rds = o$rds)),
                   class = "data.frame", row.names = 1L)
       }) |>
         do.call(rbind, args = _)
@@ -285,13 +282,14 @@ Piecemeal <- R6Class("Piecemeal",
       invisible(self)
     },
 
-    #' @description Delete the result files for which the worker function failed and/or for which the files were corrupted.
-    clean = function() {
-      private$.toclean <- FALSE
+    #' @description Delete the result files for which the worker function failed and/or for which the files were corrupted, or based on some other predicate.
+    #' @param which a function of a result list (see `Piecemeal$result_list()`) returning `TRUE` if the result file is to be deleted and `FALSE` otherwise.
+    clean = function(which = function(res) !res$OK) {
       done <- private$.done()
-      OK <- done |> map(safe_readRDS) |> map_lgl("OK")
-      unlink(done[!OK])
-      if(any(!OK)) message(sprintf("%d failed runs deleted.", sum(!OK)))
+      del <- done |> map(safe_readRDS) |> map_lgl(which)
+      private$.toclean <- FALSE
+      unlink(done[del])
+      if(any(del)) message(sprintf("%d failed runs deleted.", sum(del)))
       invisible(self)
     },
 
@@ -299,7 +297,7 @@ Piecemeal <- R6Class("Piecemeal",
     erred = function() {
       private$.done() |>
         map(safe_readRDS) |>
-        map(\(o) if(!o$OK) o$config) |>
+        discard("OK") |>
         compact()
     },
 
@@ -417,7 +415,7 @@ safe_readRDS <- function(file, ..., verbose = FALSE) {
   tryCatch(readRDS(file, ...),
            error = function(e) {
              if(verbose) message("Run file ", sQuote(file), " is corrupted. This should never happen.")
-             list(config = NULL, output = NULL, OK = FALSE)
+             list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
            })
 }
 
@@ -441,11 +439,16 @@ run_config <- function(config, error, worker = NULL, outdir = NULL) {
   })
   if(is.null(fnlock)) return(paste(fn, "SKIPPED", sep = "\n"))
 
-  if(".seed" %in% names(formals(worker)))
-    config$treatment$.seed <- config$seed
+  treatment <- config$treatment
+  config$treatment <- NULL
+  seed <- config$seed
+  config$seed <- NULL
 
-  set.seed(config$seed)
-  out <- try(do.call(worker, config$treatment))
+  if(".seed" %in% names(formals(worker)))
+    config$treatment$.seed <- seed
+
+  set.seed(seed)
+  out <- try(do.call(worker, treatment))
   if(inherits(out, "try-error")){
     if(error == "skip") return(paste(fn, out, sep = "\n"))
     OK <- FALSE
@@ -456,7 +459,7 @@ run_config <- function(config, error, worker = NULL, outdir = NULL) {
   # following pattern guarantees that if the process is killed while
   # the results are being written out, a corrupted file does not
   # result.
-  saveRDS(list(output = out, config = config, OK = OK), paste0(fn, ".tmp"))
+  saveRDS(list(seed = seed, treatment = treatment, output = out, config = config, OK = OK), paste0(fn, ".tmp"))
   file.rename(paste0(fn, ".tmp"), fn)
   if(OK) return(paste(fn, "OK", sep = "\n")) else return(paste(fn, out, sep = "\n"))
 }
