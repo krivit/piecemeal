@@ -445,7 +445,7 @@ run_config <- function(config, error, worker = NULL, outdir = NULL) {
   config$seed <- NULL
 
   if(".seed" %in% names(formals(worker)))
-    config$treatment$.seed <- seed
+    treatment$.seed <- seed
 
   set.seed(seed)
   out <- try(do.call(worker, treatment))
