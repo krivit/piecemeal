@@ -61,7 +61,7 @@ Piecemeal <- R6Class("Piecemeal",
     .split = c(1L, 1L),
     .error = "auto",
     .toclean = FALSE,
-    .done = function() list.files(private$.outdir, ".*\\.rds", full.names = TRUE, recursive = TRUE),
+    .done = function() list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE),
     .check_args = function(which = TRUE) {
       if(length(private$.treatments)) {
         for(i in seq_along(private$.treatments)[which]) {
