@@ -369,6 +369,30 @@ Piecemeal <- R6Class("Piecemeal",
       attr(o, "outdir") <- private$.outdir
       class(o) <- c("summary.Piecemeal", class(o))
       o
+    },
+
+    #' @description Estimate the rate at which runs are being completed and the estimated time left.
+    #' @param window initial time window to use, either a [`difftime`] object or the number in seconds; defaults to 1 hour.
+    #' @details The window used is actually between the last completed run and the earliest run in the `window` before that. This allows to take an interrupted simulation and estimate how much more time (at the most recent rate) is needed.
+    #' @return A list with elements `window`, `recent`, `cost`, `left`, `rate`, and `eta`, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
+    eta = function(window = 3600) {
+      if(is(window, "difftime")) window <- as.numeric(window, units = "secs")
+
+      done <- private$.done()
+      total <- max(1, length(private$.treatments)) * length(private$.seeds)
+      left <- total - length(done)
+
+      mtimes <- done |>
+        file.info(extra_cols = FALSE) |>
+        pluck("mtime")
+      mtimes <- mtimes[mtimes >= max(mtimes) - window]
+
+      recent <- length(mtimes) - 1
+      window <- as.numeric(max(mtimes) - min(mtimes), units = "secs")
+
+      cost <- window / recent
+      structure(list(window = window, recent = recent, cost = cost, rate = 1/cost, left = left * cost, eta = Sys.time() + left * cost),
+                class = "eta.Piecemeal", outdir = private$.outdir)
     }
   )
   )
@@ -385,6 +409,43 @@ print.summary.Piecemeal <- function(x, ...) {
   cat("A Piecemeal simulation\n")
   cat("Output directory:", attr(x, "outdir"), "\n\n")
   print(as.data.frame(x))
+  invisible(x)
+}
+
+find_time_unit <- function(dt) {
+  dt <- as.numeric(dt, units = "secs")
+  units <- if(dt < 60*2) "secs"
+           else if(dt < 60*60*2) "mins"
+           else "hours"
+
+  as.difftime(dt / switch(units, secs = 1, mins = 60, hours = 60*60), units = units)
+}
+
+find_rate_unit <- function(hz) {
+  per <- if(hz >= 1) "sec"
+         else if(hz >= 1/60) "min"
+         else if(hz >= 1/60/60) "hour"
+         else "day"
+
+  structure(hz * switch(per, sec = 1, min = 60, hour = 60*60, day = 24*60*60), per = per, class = "rate")
+}
+
+format.rate <- function(x, ...) {
+  paste(format(as.numeric(x), ...), "per", attr(x, "per"))
+}
+
+#' @noRd
+#' @export
+print.eta.Piecemeal <- function(x, ...) {
+  cat("A Piecemeal simulation ETA calculation\n")
+  cat("Output directory:", attr(x, "outdir"), "\n")
+  cat("Based on", x$recent, "completions in the past", format(find_time_unit(x$window)), "\n\n")
+
+  cat("Time per completion:", format(find_time_unit(x$cost)), "\n")
+  cat("Completion rate:", format(find_rate_unit(x$rate)), "\n")
+  cat("Estimated time left:", format(find_time_unit(x$left)), "\n")
+  cat("Estimated completion time:", format(x$eta), "\n")
+
   invisible(x)
 }
 

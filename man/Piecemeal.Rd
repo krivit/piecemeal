@@ -73,6 +73,7 @@ sim$result_df()
 \item \href{#method-Piecemeal-options}{\code{Piecemeal$options()}}
 \item \href{#method-Piecemeal-print}{\code{Piecemeal$print()}}
 \item \href{#method-Piecemeal-summary}{\code{Piecemeal$summary()}}
+\item \href{#method-Piecemeal-eta}{\code{Piecemeal$eta()}}
 \item \href{#method-Piecemeal-clone}{\code{Piecemeal$clone()}}
 }
 }
@@ -419,6 +420,30 @@ Summarise the current state of the simulation, including the number of runs succ
 \item{\code{...}}{additional arguments, currently unused.}
 }
 \if{html}{\out{</div>}}
+}
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-eta"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-eta}{}}}
+\subsection{Method \code{eta()}}{
+Estimate the rate at which runs are being completed and the estimated time left.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$eta(window = 3600)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{window}}{initial time window to use, either a \code{\link{difftime}} object or the number in seconds; defaults to 1 hour.}
+}
+\if{html}{\out{</div>}}
+}
+\subsection{Details}{
+The window used is actually between the last completed run and the earliest run in the \code{window} before that. This allows to take an interrupted simulation and estimate how much more time (at the most recent rate) is needed.
+}
+
+\subsection{Returns}{
+A list with elements \code{window}, \code{recent}, \code{cost}, \code{left}, \code{rate}, and \code{eta}, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
 }
 }
 \if{html}{\out{<hr>}}
