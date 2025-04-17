@@ -282,9 +282,16 @@ A list of lists with arguments to the worker functions and worker-specific confi
 \subsection{Method \code{result_list()}}{
 Scan through the results files and collate them into a list.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$result_list()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$result_list(n = Inf)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{n}}{maximum number of files to load; if less than the number of results, a systematic sample is taken.}
+}
+\if{html}{\out{</div>}}
+}
 \subsection{Returns}{
 A list of lists containing the contents of the result files.
 \describe{
@@ -302,7 +309,7 @@ A list of lists containing the contents of the result files.
 \subsection{Method \code{result_df()}}{
 Scan through the results files and collate them into a data frame.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$result_df(trt_tf = identity, out_tf = identity, rds = FALSE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$result_df(trt_tf = identity, out_tf = identity, rds = FALSE, ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -311,6 +318,8 @@ Scan through the results files and collate them into a data frame.
 \item{\code{trt_tf, out_tf}}{functions that take the treatment configuration list and the output respectively, and return named lists that become data frame columns; a special value \code{I} instead creates columns \code{treatment} and/or \code{output} with the respective lists copied as is.}
 
 \item{\code{rds}}{whether to include an \code{.rds} column described below.}
+
+\item{\code{...}}{additional arguments, passed to \code{Piecemeal$result_list()}.}
 }
 \if{html}{\out{</div>}}
 }

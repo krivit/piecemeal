@@ -229,6 +229,7 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description Scan through the results files and collate them into a list.
+    #' @param n maximum number of files to load; if less than the number of results, a systematic sample is taken.
     #' @return A list of lists containing the contents of the result files.
     #' \describe{
     #' \item{`treatment`}{arguments passed to the worker}
@@ -237,24 +238,28 @@ Piecemeal <- R6Class("Piecemeal",
     #' \item{`OK`}{whether the worker succeeded or produced an error}
     #' \item{`config`}{miscellaneous configuration settings such as the file name}
     #' }
-    result_list = function() {
-      map(private$.done(), \(fn) c(safe_readRDS(fn, verbose = TRUE), rds = fn))
+    result_list = function(n = Inf) {
+      done <- private$.done()
+      n <- min(n, length(done))
+      i <- seq(1, length(done), length.out = n) |> round()
+      map(done[i], \(fn) c(safe_readRDS(fn, verbose = TRUE), rds = fn))
     },
 
     #' @description Scan through the results files and collate them into a data frame.
     #' @param trt_tf,out_tf functions that take the treatment configuration list and the output respectively, and return named lists that become data frame columns; a special value `I` instead creates columns `treatment` and/or `output` with the respective lists copied as is.
     #' @param rds whether to include an `.rds` column described below.
+    #' @param ... additional arguments, passed to `Piecemeal$result_list()`.
     #' @return A data frame with columns corresponding to the values returned by `trt_tf` and `out_tf`, with the following additional columns:
     #' \describe{
     #' \item{`.seed`}{the random seed used.}
     #' \item{`.rds`}{the path to the RDS file (if requested).}
     #' }
     #' Runs that erred are filtered out.
-    result_df = function(trt_tf = identity, out_tf = identity, rds = FALSE) {
+    result_df = function(trt_tf = identity, out_tf = identity, rds = FALSE, ...) {
       if(identical(trt_tf, I)) trt_tf <- \(x) list(treatment=list(x))
       if(identical(out_tf, I)) out_tf <- \(x) list(output=list(x))
 
-      l <- self$result_list()
+      l <- self$result_list(...)
       OK <- map_lgl(l, "OK")
       if(!all(OK)) message(sprintf("%d/%d runs had returned an error.", sum(!OK), length(OK)))
       l <- l[OK]
