@@ -182,10 +182,22 @@ We have all 24 combinations!
 sim$result_df()
 ```
 
-Lastly, suppose that we want to run additional 2 replications of
-each treatment combination. We can pick up where we left off:
+Lastly, suppose that we want to run additional 2 replications of each
+treatment combination. We can add more replications, and the
+simulation will pick up where it left off.
 ```{r}
 sim$nrep(5)
+```
+
+Incidentally, we can estimate how much longer the simulation will take
+based on the past runs. (This can also be run while the simulation is
+running.)
+```{r}
+sim$eta()
+```
+
+In any case, we resume our run:
+```{r}
 sim$run()
 sim$result_df()
 ```

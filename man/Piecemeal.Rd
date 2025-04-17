@@ -15,6 +15,8 @@ Errors in the worker function are caught and error messages saved and returned.
 }
 \note{
 If no treatment is specified, the function is called with no arguments (or just \code{.seed}).
+
+The estimation method is a simple ratio, so it may be biased under some circumstances.
 }
 \examples{
 # Initialise, with the output directory.

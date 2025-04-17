@@ -374,6 +374,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Estimate the rate at which runs are being completed and the estimated time left.
     #' @param window initial time window to use, either a [`difftime`] object or the number in seconds; defaults to 1 hour.
     #' @details The window used is actually between the last completed run and the earliest run in the `window` before that. This allows to take an interrupted simulation and estimate how much more time (at the most recent rate) is needed.
+    #' @note The estimation method is a simple ratio, so it may be biased under some circumstances.
     #' @return A list with elements `window`, `recent`, `cost`, `left`, `rate`, and `eta`, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
     eta = function(window = 3600) {
       if(is(window, "difftime")) window <- as.numeric(window, units = "secs")
@@ -439,11 +440,11 @@ format.rate <- function(x, ...) {
 print.eta.Piecemeal <- function(x, ...) {
   cat("A Piecemeal simulation ETA calculation\n")
   cat("Output directory:", attr(x, "outdir"), "\n")
-  cat("Based on", x$recent, "completions in the past", format(find_time_unit(x$window)), "\n\n")
+  cat("Based on", x$recent, "completions in", format(find_time_unit(x$window), digits = 1), "\n\n")
 
-  cat("Time per completion:", format(find_time_unit(x$cost)), "\n")
-  cat("Completion rate:", format(find_rate_unit(x$rate)), "\n")
-  cat("Estimated time left:", format(find_time_unit(x$left)), "\n")
+  cat("Time per completion:", format(find_time_unit(x$cost), digits = 1), "\n")
+  cat("Completion rate:", format(find_rate_unit(x$rate), digits = 1), "\n")
+  cat("Estimated time left:", format(find_time_unit(x$left), digits = 1), "\n")
   cat("Estimated completion time:", format(x$eta), "\n")
 
   invisible(x)
