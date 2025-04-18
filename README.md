@@ -19,9 +19,9 @@ This can be worked around in a variety of ways. Functions can be wrapped in `try
 * It encapsulates simulation settings, from the experiment design to the cluster settings to which variables need to be sent to the worker nodes in a single object: you specify what you need, then just tell it to run, and it executes your instructions.
 * The individual run results are accessible---but only if you want to see them.
 * It keeps track of simulation configurations and random seeds, so if some run has failed, you can quickly identify and debug it.
-* Through careful use of locks, you can run multiple jobs for the same simulation study on the same cluster without them interfering with each other.
+* A locking mechanism makes it so that you can run multiple jobs for the same simulation study on the same host without them interfering with each other.
 * Saving each run's results is atomic: either the run's result is fully saved, or it's not saved at all.
-* You can check in on the progress of the simulation even while it's running: collate the results thus far, see which runs have produced errors and how, etc..
+* You can check in on the progress of the simulation even while it's running: collate the results thus far, see which runs have produced errors and how, estimate the time left, etc..
 
 ## Installation
 
@@ -39,6 +39,7 @@ This is a basic example. For a more involved example, including debuging the sim
 ``` r
 library(piecemeal)
 
+# Piecemeal is an R6 class, so we access its methods using $.
 # Initialise, with the output directory.
 sim <- Piecemeal$new(file.path(tempdir(), "piecemeal_demo"))
 # Clear the previous simulation, if present.
