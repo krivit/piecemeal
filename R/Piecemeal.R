@@ -137,7 +137,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param l a list, typically of lists of arguments to be passed to the function specified by `worker`; it is recommended that these be as compact as possible, since they are [`serialize`]d and sent to the worker node for every combination of treatment configuration and random seed.
     #' @param .add whether the new treatment configurations should be added to the current list (if `TRUE`, the default) or replace it (if `FALSE`.
     treatments = function(l, .add = TRUE) {
-      l <- lapply(l, add_hash)
+      l <- map(l, add_hash)
       if(!.add) private$.treatments <- list()
       private$.treatments <- c(private$.treatments, l)
       invisible(self)
@@ -198,12 +198,12 @@ Piecemeal <- R6Class("Piecemeal",
       if(shuffle) configs <- configs[sample.int(length(configs))]
 
       statuses <- simplify2array(
-        if(is.null(cl)) lapply(configs, run_config, error = private$.error, worker = private$.worker, outdir = private$.outdir)
+        if(is.null(cl)) map(configs, run_config, error = private$.error, worker = private$.worker, outdir = private$.outdir)
         else clusterApplyLB(cl, configs, run_config, error = private$.error)
       )
 
       c(
-        if(length(statuses)) statuses |> strsplit("\n", fixed = TRUE) |> vapply(`[`, "", -1L),
+        if(length(statuses)) statuses |> strsplit("\n", fixed = TRUE) |> map_chr(2L),
         rep("SKIPPED", done)
       ) |>
         table() |> as.data.frame() |> setNames(c("Status", "Runs")) |>
@@ -242,7 +242,7 @@ Piecemeal <- R6Class("Piecemeal",
       done <- private$.done()
       n <- min(n, length(done))
       i <- seq(1, length(done), length.out = n) |> round()
-      map(done[i], \(fn) c(safe_readRDS(fn, verbose = TRUE), rds = fn))
+      map(done[i], \(fn) c(safe_readRDS(fn, verbose = TRUE), rds = fn), .progress = "Loading results")
     },
 
     #' @description Scan through the results files and collate them into a data frame.
@@ -269,7 +269,7 @@ Piecemeal <- R6Class("Piecemeal",
                     trt_tf(o$treatment), out_tf(o$output),
                     list(.seed = o$seed), if(rds) list(.rds = o$rds)),
                   class = "data.frame", row.names = 1L)
-      }) |>
+      }, .progress = "Converting columns") |>
         do.call(rbind, args = _)
     },
 
@@ -291,17 +291,20 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param which a function of a result list (see `Piecemeal$result_list()`) returning `TRUE` if the result file is to be deleted and `FALSE` otherwise.
     clean = function(which = function(res) !res$OK) {
       done <- private$.done()
-      del <- done |> map(safe_readRDS) |> map_lgl(which)
+      del <- done |> map(safe_readRDS, .progress = "Loading results") |> map_lgl(which, .progress = "Filtering")
       private$.toclean <- FALSE
-      unlink(done[del])
-      if(any(del)) message(sprintf("%d failed runs deleted.", sum(del)))
+      if(any(del)){
+        message("Deleting...")
+        unlink(done[del])
+        message(sprintf("%d failed runs deleted.", sum(del)))
+      }
       invisible(self)
     },
 
     #' @description List the configurations for which the worker function failed.
     erred = function() {
       private$.done() |>
-        map(safe_readRDS) |>
+        map(safe_readRDS, .progress = "Loading results") |>
         discard("OK") |>
         compact()
     },
