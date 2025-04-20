@@ -117,7 +117,7 @@ Piecemeal <- R6Class("Piecemeal",
       invisible(self)
     },
 
-    #' @description Specify code to be run on each worker node at the start of the simulation.
+    #' @description Specify code to be run on each worker node at the start of the simulation; if running locally, it will be evaluated in the global environment.
     #' @param expr an expression; if passed, replaces the previous expression; if empty, resets it to nothing.
     setup = function(expr = {}) {
       if(private$.error == "auto") private$.toclean <- TRUE
@@ -125,7 +125,7 @@ Piecemeal <- R6Class("Piecemeal",
       invisible(self)
     },
 
-    #' @description Specify the function to be run for each treatment configuration.
+    #' @description Specify the function to be run for each treatment configuration; it will be run in the global environment.
     #' @param fun a function whose arguments are specified by `$treatments()` and `$factorial()`; if it has `.seed` as a named argument, the seed will be passed as well.
     worker = function(fun) {
       if(private$.error == "auto") private$.toclean <- TRUE
@@ -182,7 +182,9 @@ Piecemeal <- R6Class("Piecemeal",
         on.exit(stopCluster(cl))
       }
 
-      if(!is.null(cl)) {
+      if(is.null(cl)) {
+        eval(private$.setup, envir = .GlobalEnv)
+      } else {
         .worker <- private$.worker
         .outdir <- private$.outdir
         clusterExport(cl, c(".worker", ".outdir"), environment())
@@ -198,7 +200,7 @@ Piecemeal <- R6Class("Piecemeal",
       if(shuffle) configs <- configs[sample.int(length(configs))]
 
       statuses <- simplify2array(
-        if(is.null(cl)) map(configs, run_config, error = private$.error, worker = private$.worker, outdir = private$.outdir)
+        if(is.null(cl)) map(configs, run_config, error = private$.error, worker = private$.worker, outdir = private$.outdir, .progress = "Running")
         else clusterApplyLB(cl, configs, run_config, error = private$.error)
       )
 
@@ -518,7 +520,7 @@ run_config <- function(config, error, worker = NULL, outdir = NULL) {
     treatment$.seed <- seed
 
   set.seed(seed)
-  out <- try(do.call(worker, treatment))
+  out <- try(do.call(worker, treatment, envir = .GlobalEnv))
   if(inherits(out, "try-error")){
     if(error == "skip") return(paste(fn, out, sep = "\n"))
     OK <- FALSE

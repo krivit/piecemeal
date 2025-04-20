@@ -136,7 +136,7 @@ Specify variables to be copied from the manager node to the worker nodes' global
 \if{html}{\out{<a id="method-Piecemeal-setup"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-setup}{}}}
 \subsection{Method \code{setup()}}{
-Specify code to be run on each worker node at the start of the simulation.
+Specify code to be run on each worker node at the start of the simulation; if running locally, it will be evaluated in the global environment.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Piecemeal$setup(
   expr = {
@@ -156,7 +156,7 @@ Specify code to be run on each worker node at the start of the simulation.
 \if{html}{\out{<a id="method-Piecemeal-worker"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-worker}{}}}
 \subsection{Method \code{worker()}}{
-Specify the function to be run for each treatment configuration.
+Specify the function to be run for each treatment configuration; it will be run in the global environment.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Piecemeal$worker(fun)}\if{html}{\out{</div>}}
 }
