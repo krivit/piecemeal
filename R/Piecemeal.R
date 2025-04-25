@@ -232,6 +232,7 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description Scan through the results files and collate them into a list.
     #' @param n maximum number of files to load; if less than the number of results, a systematic sample is taken.
+    #' @param trt_tf,out_tf functions that take the treatment configuration list and the output respectively, and transform them; this is helpful when, for example, the output is big and so loading all the files will run out of memory.
     #' @return A list of lists containing the contents of the result files.
     #' \describe{
     #' \item{`treatment`}{arguments passed to the worker}
@@ -240,11 +241,21 @@ Piecemeal <- R6Class("Piecemeal",
     #' \item{`OK`}{whether the worker succeeded or produced an error}
     #' \item{`config`}{miscellaneous configuration settings such as the file name}
     #' }
-    result_list = function(n = Inf) {
+    result_list = function(n = Inf, trt_tf = identity, out_tf = identity) {
       done <- private$.done()
       n <- min(n, length(done))
       i <- seq(1, length(done), length.out = n) |> round()
-      map(done[i], \(fn) c(safe_readRDS(fn, verbose = TRUE), rds = fn), .progress = "Loading results")
+      map(done[i],
+          if(identical(trt_tf, identity) && identical(out_tf, identity))
+            function(fn) c(safe_readRDS(fn, verbose = TRUE), rds = fn)
+          else
+            function(fn) {
+              o <- safe_readRDS(fn, verbose = TRUE)
+              o$treatment <- trt_tf(o$treatment)
+              o$output <- out_tf(o$output)
+              c(o, rds = fn)
+            },
+          .progress = "Loading results")
     },
 
     #' @description Scan through the results files and collate them into a data frame.
@@ -261,14 +272,14 @@ Piecemeal <- R6Class("Piecemeal",
       if(identical(trt_tf, I)) trt_tf <- \(x) list(treatment=list(x))
       if(identical(out_tf, I)) out_tf <- \(x) list(output=list(x))
 
-      l <- self$result_list(...)
+      l <- self$result_list(trt_tf = trt_tf, out_tf = out_tf, ...)
       OK <- map_lgl(l, "OK")
       if(!all(OK)) message(sprintf("%d/%d runs had returned an error.", sum(!OK), length(OK)))
       l <- l[OK]
 
       map(l, function(o) {
         structure(c(list(),
-                    trt_tf(o$treatment), out_tf(o$output),
+                    o$treatment, o$output,
                     list(.seed = o$seed), if(rds) list(.rds = o$rds)),
                   class = "data.frame", row.names = 1L)
       }, .progress = "Converting columns") |>
@@ -293,7 +304,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param which a function of a result list (see `Piecemeal$result_list()`) returning `TRUE` if the result file is to be deleted and `FALSE` otherwise.
     clean = function(which = function(res) !res$OK) {
       done <- private$.done()
-      del <- done |> map(safe_readRDS, .progress = "Loading results") |> map_lgl(which, .progress = "Filtering")
+      del <- done |> map_lgl(\(fn) which(safe_readRDS(fn)), .progress = "Loading and filtering")
       private$.toclean <- FALSE
       if(any(del)){
         message("Deleting...")
@@ -306,8 +317,10 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description List the configurations for which the worker function failed.
     erred = function() {
       private$.done() |>
-        map(safe_readRDS, .progress = "Loading results") |>
-        discard("OK") |>
+        map(function(fn) {
+          o <- safe_readRDS(fn)
+          if(o$OK) NULL else o
+        }) |>
         compact()
     },
 
@@ -365,7 +378,8 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, and the errors encountered.
     #' @param ... additional arguments, currently unused.
     summary = function(...) {
-      l <- self$result_list()
+      # We only want the output if it's an error.
+      l <- self$result_list(trt_tf = \(trt) NULL, out_tf = \(out) if(is(out, "try-error")) out else NULL)
       Result <- map_chr(l, function(o)
         if(o$OK) "Done"
         else if(is.null(o$config)) "Corrupted"

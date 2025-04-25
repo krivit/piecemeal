@@ -2,7 +2,7 @@
 % Please edit documentation in R/Piecemeal.R
 \name{Piecemeal}
 \alias{Piecemeal}
-\title{The \code{Piecemeal} \code{\link[R6:R6Class]{R6}} Class}
+\title{The \code{Piecemeal} \code{\link{R6}} Class}
 \description{
 This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See \href{../doc/piecemeal.html}{the vignette \code{vignette("piecemeal")}} for long worked example.
 }
@@ -282,13 +282,15 @@ A list of lists with arguments to the worker functions and worker-specific confi
 \subsection{Method \code{result_list()}}{
 Scan through the results files and collate them into a list.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$result_list(n = Inf)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$result_list(n = Inf, trt_tf = identity, out_tf = identity)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{n}}{maximum number of files to load; if less than the number of results, a systematic sample is taken.}
+
+\item{\code{trt_tf, out_tf}}{functions that take the treatment configuration list and the output respectively, and transform them; this is helpful when, for example, the output is big and so loading all the files will run out of memory.}
 }
 \if{html}{\out{</div>}}
 }
