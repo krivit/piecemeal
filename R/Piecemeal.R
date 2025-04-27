@@ -189,7 +189,7 @@ Piecemeal <- R6Class("Piecemeal",
       }
 
       if(is.null(cl)) {
-        run_env <- new.env(parent = baseenv())
+        run_env <- new.env(parent = parent.env(.GlobalEnv))
         run_env$.worker <- private$.worker
         run_env$.outdir <- private$.outdir
         
