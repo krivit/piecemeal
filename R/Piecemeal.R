@@ -567,7 +567,7 @@ run_config <- function(config, error, env = NULL) {
     treatment$.seed <- seed
 
   set.seed(seed)
-  out <- try(do.call(worker, treatment, envir = env %||% .GlobalEnv))
+  out <- try(do.call(worker, treatment, envir = env %||% .GlobalEnv), silent = TRUE)
   if(inherits(out, "try-error")) {
     if(error == "skip") return(paste(fn, out, sep = "\n"))
     OK <- FALSE
