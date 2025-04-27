@@ -117,15 +117,17 @@ Cluster settings for the piecemeal run.
 \if{html}{\out{<a id="method-Piecemeal-export_vars"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-export_vars}{}}}
 \subsection{Method \code{export_vars()}}{
-Specify variables to be copied from the manager node to the worker nodes' global environment.
+Specify variables to be copied from the manager node to the worker nodes' global environment. (See \code{\link[parallel:clusterApply]{parallel::clusterExport()}}.)
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$export_vars(varlist, .add = TRUE)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$export_vars(varlist, envir = parent.frame(), .add = TRUE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{varlist}}{a character vector with variable names.}
+
+\item{\code{envir}}{the environment on the manager node from which to take the variables; defaults to the current environment.}
 
 \item{\code{.add}}{whether the new variables should be added to the current list (if \code{TRUE}, the default) or replace it (if \code{FALSE}).}
 }
@@ -213,7 +215,7 @@ Specify a list of treatment configurations to be run in a factorial design.
 \if{html}{\out{<a id="method-Piecemeal-nrep"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-nrep}{}}}
 \subsection{Method \code{nrep()}}{
-Specify a number of replications for each treatment configuration.
+Specify a number of replications for each treatment configuration (starts out at 1).
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Piecemeal$nrep(nrep)}\if{html}{\out{</div>}}
 }

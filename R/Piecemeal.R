@@ -56,8 +56,9 @@ Piecemeal <- R6Class("Piecemeal",
     .setup = {},
     .treatments = list(),
     .worker = NULL,
-    .seeds = NULL,
-    .cl_vars = NULL,
+    .seeds = 1L,
+    .cl_vars = list(),
+    .cl_var_envs = list(),
     .split = c(1L, 1L),
     .error = "auto",
     .toclean = FALSE,
@@ -107,13 +108,18 @@ Piecemeal <- R6Class("Piecemeal",
       invisible(self)
     },
 
-    #' @description Specify variables to be copied from the manager node to the worker nodes' global environment.
+    #' @description Specify variables to be copied from the manager node to the worker nodes' global environment. (See [parallel::clusterExport()].)
     #' @param varlist a character vector with variable names.
+    #' @param envir the environment on the manager node from which to take the variables; defaults to the current environment.
     #' @param .add whether the new variables should be added to the current list (if `TRUE`, the default) or replace it (if `FALSE`).
-    export_vars = function(varlist, .add = TRUE) {
+    export_vars = function(varlist, envir = parent.frame(), .add = TRUE) {
       if(private$.error == "auto") private$.toclean <- TRUE
-      if(!.add) private$.cl_vars <- NULL
-      private$.cl_vars <- unique(c(private$.cl_vars, varlist))
+      if(!.add) private$.cl_vars <- private$.cl_var_envs <- list()
+      if(length(eid <- which(map_lgl(private$.cl_var_envs, identical, envir))) == 0L) {
+        eid <- length(private$.cl_var_envs <- c(private$.cl_var_envs, list(envir)))
+        private$.cl_vars[[eid]] <- character(0)
+      }
+      private$.cl_vars[[eid]] <- unique(c(private$.cl_vars[[eid]], varlist))
       invisible(self)
     },
 
@@ -155,7 +161,7 @@ Piecemeal <- R6Class("Piecemeal",
       invisible(self)
     },
 
-    #' @description Specify a number of replications for each treatment configuration.
+    #' @description Specify a number of replications for each treatment configuration (starts out at 1).
     #' @param nrep a positive integer giving the number of replications; the seeds will be set to `1:nrep`.
     nrep = function(nrep) {
       private$.seeds <- seq_len(nrep)
@@ -183,15 +189,24 @@ Piecemeal <- R6Class("Piecemeal",
       }
 
       if(is.null(cl)) {
-        eval(private$.setup, envir = .GlobalEnv)
+        run_env <- new.env(parent = baseenv())
+        run_env$.worker <- private$.worker
+        run_env$.outdir <- private$.outdir
+        
+        eval(private$.setup, envir = run_env)
+
+        for(i in seq_along(private$.cl_vars))
+          for(name in private$.cl_vars[[i]])
+            assign(name, get(name, private$.cl_var_envs[[i]]), run_env)
       } else {
         .worker <- private$.worker
         .outdir <- private$.outdir
         clusterExport(cl, c(".worker", ".outdir"), environment())
 
-        if(length(private$.cl_vars)) clusterExport(cl, private$.cl_vars)
-
         clusterCall(cl, eval, private$.setup, envir = .GlobalEnv)
+
+        for(i in seq_along(private$.cl_vars)) 
+          clusterExport(cl, private$.cl_vars[[i]], private$.cl_var_envs[[i]])
       }
 
       configs <- self$todo()
@@ -200,7 +215,7 @@ Piecemeal <- R6Class("Piecemeal",
       if(shuffle) configs <- configs[sample.int(length(configs))]
 
       statuses <- simplify2array(
-        if(is.null(cl)) map(configs, run_config, error = private$.error, worker = private$.worker, outdir = private$.outdir, .progress = "Running")
+        if(is.null(cl)) map(configs, run_config, error = private$.error, env = run_env, .progress = "Running")
         else clusterApplyLB(cl, configs, run_config, error = private$.error)
       )
 
@@ -354,13 +369,24 @@ Piecemeal <- R6Class("Piecemeal",
           cat("  configuration: ")
           print(as.call(c(list(as.name("makeCluster")), private$.cl_setup)))
         }
-        if(length(private$.setup) && !identical(private$.setup, quote({}))) {
-          cat("  initialise each node with:\n")
-          cat(paste("   ", deparse(private$.setup), collapse = "\n"), "\n")
-        }
+      }
 
-        if(length(private$.cl_vars))
-           cat("  variables to copy:", paste(sQuote(private$.cl_vars), collapse = ", "), "\n")
+      setup <- length(private$.setup) && !identical(private$.setup, quote({}))
+      vars <- (sum(length(private$.cl_vars)) != 0)
+      if(setup || vars) cat("\nSetup:\n")
+
+      if(setup) {
+        cat("  initialise each node with:\n")
+        cat(paste("   ", deparse(private$.setup), collapse = "\n"), "\n")
+      }
+
+      if(vars) {
+        cat("  variables to copy from each environment:\n")
+        for(i in seq_along(private$.cl_vars)) {
+          cat("    ", envname(private$.cl_var_envs[[i]]), ": ",
+              paste(sQuote(private$.cl_vars[[i]]), collapse = ", "),
+              "\n", sep = "")
+        }
       }
 
       if(length(private$.worker)) {
@@ -437,6 +463,13 @@ print.summary.Piecemeal <- function(x, ...) {
   invisible(x)
 }
 
+# NB: toString() and as.character() err, deparse() only returns
+# "<environment>", and environmentName() only works for namespaces.
+envname <- function(e) {
+  capture.output(e) |>
+    gsub("^<environment: (.+)>$", "\\1", x = _)
+}
+
 find_time_unit <- function(dt) {
   dt <- as.numeric(dt, units = "secs")
   units <- if(dt < 60*2) "secs"
@@ -505,9 +538,9 @@ safe_readRDS <- function(file, ..., verbose = FALSE) {
            })
 }
 
-run_config <- function(config, error, worker = NULL, outdir = NULL) {
-  if(is.null(worker)) worker <- get(".worker", .GlobalEnv)
-  if(is.null(outdir)) outdir <- get(".outdir", .GlobalEnv)
+run_config <- function(config, error, env = NULL) {
+  worker <- get(".worker", env %||% .GlobalEnv)
+  outdir <- get(".outdir", env %||% .GlobalEnv)
 
   fn <- config$fn
   subdirs <- config$subdirs
@@ -534,11 +567,11 @@ run_config <- function(config, error, worker = NULL, outdir = NULL) {
     treatment$.seed <- seed
 
   set.seed(seed)
-  out <- try(do.call(worker, treatment, envir = .GlobalEnv))
-  if(inherits(out, "try-error")){
+  out <- try(do.call(worker, treatment, envir = env %||% .GlobalEnv))
+  if(inherits(out, "try-error")) {
     if(error == "skip") return(paste(fn, out, sep = "\n"))
     OK <- FALSE
-  }else OK <- TRUE
+  } else OK <- TRUE
   
 
   # saveRDS() is not atomic, whereas file.rename() typically is. The
@@ -547,5 +580,5 @@ run_config <- function(config, error, worker = NULL, outdir = NULL) {
   # result.
   saveRDS(list(seed = seed, treatment = treatment, output = out, config = config, OK = OK), paste0(fn, ".tmp"))
   file.rename(paste0(fn, ".tmp"), fn)
-  if(OK) return(paste(fn, "OK", sep = "\n")) else return(paste(fn, out, sep = "\n"))
+  if(OK) paste(fn, "OK", sep = "\n") else paste(fn, out, sep = "\n")
 }
