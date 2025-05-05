@@ -14,7 +14,7 @@
 #' # Initialise, with the output directory.
 #' sim <- Piecemeal$new(file.path(tempdir(), "piecemeal_demo"))
 #' # Clear the previous simulation, if present.
-#' sim$reset(FALSE)
+#' sim$reset()
 #'
 #' # Set up a simulation:
 #' sim$
@@ -305,8 +305,9 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Clear the simulation results so far.
     #' @param confirm whether the user should be prompted to confirm deletion.
     reset = function(confirm = interactive()) {
-      if(confirm){
-        ans <- readline(paste0('This will delete all files from ', sQuote(private$.outdir), '. Are you sure? ("yes" to confirm, anything else to cancel) '))
+      done <- length(private$.done())
+      if(done && confirm){
+        ans <- readline(paste0('This will delete ', done, ' result files and any lock files from ', sQuote(private$.outdir), '. Are you sure? ("yes" to confirm, anything else to cancel) '))
         if(ans != "yes"){
           message("Cancelled.")
           invisible(self)

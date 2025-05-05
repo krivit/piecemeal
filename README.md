@@ -43,7 +43,7 @@ library(piecemeal)
 # Initialise, with the output directory.
 sim <- Piecemeal$new(file.path(tempdir(), "piecemeal_demo"))
 # Clear the previous simulation, if present.
-sim$reset(FALSE)
+sim$reset()
 
 # Set up a simulation:
 sim$

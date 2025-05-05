@@ -2,7 +2,7 @@
 % Please edit documentation in R/Piecemeal.R
 \name{Piecemeal}
 \alias{Piecemeal}
-\title{The \code{Piecemeal} \code{\link{R6}} Class}
+\title{The \code{Piecemeal} \code{\link[R6:R6Class]{R6}} Class}
 \description{
 This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See \href{../doc/piecemeal.html}{the vignette \code{vignette("piecemeal")}} for long worked example.
 }
@@ -22,7 +22,7 @@ The estimation method is a simple ratio, so it may be biased under some circumst
 # Initialise, with the output directory.
 sim <- Piecemeal$new(file.path(tempdir(), "piecemeal_demo"))
 # Clear the previous simulation, if present.
-sim$reset(FALSE)
+sim$reset()
 
 # Set up a simulation:
 sim$

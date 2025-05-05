@@ -54,9 +54,9 @@ Initialise the `Piecemeal` object.
 sim <- piecemeal::Piecemeal$new(outdir)
 ```
 
-The following will clear all simulation results. Called without arguments, it will ask for confirmation first.
+The following will clear all simulation results.
 ```{r}
-sim$reset(FALSE)
+sim$reset()
 ```
 
 The cluster has 2 nodes. (We could also pass a preexisting `cluster` object.)
