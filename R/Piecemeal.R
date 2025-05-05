@@ -63,6 +63,7 @@ Piecemeal <- R6Class("Piecemeal",
     .error = "auto",
     .toclean = FALSE,
     .done = function() list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE),
+    .doing = function() list.files(private$.outdir, ".*\\.rds.lock$", full.names = TRUE, recursive = TRUE),
     .check_args = function(which = TRUE) {
       if(length(private$.treatments)) {
         for(i in seq_along(private$.treatments)[which]) {
@@ -413,7 +414,10 @@ Piecemeal <- R6Class("Piecemeal",
         )
 
       total <- max(1, length(private$.treatments)) * length(private$.seeds)
-      Result <- c(Result, rep_len("ToDo", total - length(l)))
+      inprog <- length(private$.doing())
+      Result <- c(Result,
+                  rep_len("Running (approx.)", inprog),
+                  rep_len("ToDo", max(0, total - length(l) - inprog)))
 
       o <- table(Result)
       attr(o, "outdir") <- private$.outdir
@@ -430,6 +434,8 @@ Piecemeal <- R6Class("Piecemeal",
       if(is(window, "difftime")) window <- as.numeric(window, units = "secs")
 
       done <- private$.done()
+      inprog <- length(private$.doing()) # Not used in the calculation.
+
       total <- max(1, length(private$.treatments)) * length(private$.seeds)
       left <- total - length(done)
 
@@ -442,7 +448,7 @@ Piecemeal <- R6Class("Piecemeal",
       window <- as.numeric(max(mtimes) - min(mtimes), units = "secs")
 
       cost <- window / recent
-      structure(list(window = window, recent = recent, cost = cost, rate = 1/cost, left = left * cost, eta = Sys.time() + left * cost),
+      structure(list(window = window, recent = recent, cost = cost, rate = 1/cost, left = left * cost, eta = Sys.time() + left * cost, inprog = inprog),
                 class = "eta.Piecemeal", outdir = private$.outdir)
     }
   )
@@ -502,7 +508,9 @@ print.eta.Piecemeal <- function(x, ...) {
   cat("Time per completion:", format(find_time_unit(x$cost), digits = 1), "\n")
   cat("Completion rate:", format(find_rate_unit(x$rate), digits = 1), "\n")
   cat("Estimated time left:", format(find_time_unit(x$left), digits = 1), "\n")
-  cat("Estimated completion time:", format(x$eta), "\n")
+  cat("Estimated completion time:", format(x$eta), "\n\n")
+
+  cat("In progress (approximate):", x$inprog, "\n")
 
   invisible(x)
 }
