@@ -248,7 +248,7 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description Scan through the results files and collate them into a list.
     #' @param n maximum number of files to load; if less than the number of results, a systematic sample is taken.
-    #' @param trt_tf,out_tf functions that take the treatment configuration list and the output respectively, and transform them; this is helpful when, for example, the output is big and so loading all the files will run out of memory.
+    #' @param trt_tf,out_tf functions that take the treatment configuration list and the output (if not an error) respectively, and transform them; this is helpful when, for example, the output is big and so loading all the files will run out of memory.
     #' @return A list of lists containing the contents of the result files.
     #' \describe{
     #' \item{`treatment`}{arguments passed to the worker}
@@ -268,7 +268,7 @@ Piecemeal <- R6Class("Piecemeal",
             function(fn) {
               o <- safe_readRDS(fn, verbose = TRUE)
               o$treatment <- trt_tf(o$treatment)
-              o$output <- out_tf(o$output)
+              if (o$OK) o$output <- out_tf(o$output)
               c(o, rds = fn)
             },
           .progress = "Loading results")

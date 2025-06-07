@@ -292,7 +292,7 @@ Scan through the results files and collate them into a list.
 \describe{
 \item{\code{n}}{maximum number of files to load; if less than the number of results, a systematic sample is taken.}
 
-\item{\code{trt_tf, out_tf}}{functions that take the treatment configuration list and the output respectively, and transform them; this is helpful when, for example, the output is big and so loading all the files will run out of memory.}
+\item{\code{trt_tf, out_tf}}{functions that take the treatment configuration list and the output (if not an error) respectively, and transform them; this is helpful when, for example, the output is big and so loading all the files will run out of memory.}
 }
 \if{html}{\out{</div>}}
 }
