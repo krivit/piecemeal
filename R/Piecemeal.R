@@ -63,7 +63,11 @@ Piecemeal <- R6Class("Piecemeal",
     .error = "auto",
     .toclean = FALSE,
     .done = function() list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE),
-    .doing = function() list.files(private$.outdir, ".*\\.rds.lock$", full.names = TRUE, recursive = TRUE),
+    .doing = function() {
+      list.files(private$.outdir, ".*\\.rds.lock$",
+                 full.names = TRUE, recursive = TRUE) |>
+        keep(is_locked)
+    },
     .check_args = function(which = TRUE) {
       if(length(private$.treatments)) {
         for(i in seq_along(private$.treatments)[which]) {
@@ -537,6 +541,27 @@ config_subdir <- function(config, split = c(0L, 0L)) {
   seed <- as.character(config$seed)
   subdirs <- if(split[1L]) by2char(hash, split[1L], "start")
   c(subdirs, if(split[2L]) by2char(seed, split[2L], "end"))
+}
+
+## This should really be done by an appropriate system call, perhaps
+## via ticket https://github.com/r-lib/filelock/issues/23 . It is
+## theoretically possible for another process to attempt to lock path
+## between the lock() call and the unlink() call and be rebuffed.
+##
+## NB: This function also cleans stale lockfiles as a side-effect.
+is_locked <- function(path) {
+  # No lock file -> not locked.
+  if (!file.exists(path)) return(FALSE)
+
+  lock <- filelock::lock(path, timeout = 0)
+
+  # Lock attempt unsuccessful -> locked
+  if (is.null(lock)) return(TRUE)
+
+  # Delete and unlock -> unlocked
+  unlink(path)
+  filelock::unlock(lock)
+  FALSE
 }
 
 safe_readRDS <- function(file, ..., verbose = FALSE) {
