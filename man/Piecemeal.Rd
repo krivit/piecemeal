@@ -386,7 +386,7 @@ List the configurations for which the worker function failed.
 \subsection{Method \code{options()}}{
 Set miscellaneous options.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$options(split = c(1L, 1L), error = c("auto", "save", "skip"))}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$options(split = c(1L, 1L), error = c("auto", "save", "skip", "stop"))}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -397,6 +397,7 @@ Set miscellaneous options.
 \item{\code{error}}{how to handle worker errors:\describe{
 \item{\code{"save"}}{save the seed, the configuration, and the status, preventing future runs until the file is using \code{Piecemeal$clean()}.}
 \item{\code{"skip"}}{return the error message as a part of \code{run()}'s return value, but do not save the RDS file; the next \code{run()} will attempt to run the worker for that configuration and seed again.}
+\item{\code{"stop"}}{allow the error to propagate; can be used in conjunction with \code{Piecemeal$cluster(NULL)} and (global) \code{options(error = recover)} to debug the worker.}
 \item{\code{"auto"}}{(default) as \code{"save"}, but if any of the methods that change how each configuration is run (i.e., \verb{$worker()}, \verb{$setup()}, and \verb{$export_vars()}) is called, \verb{$clean()} will be called automatically before the next \verb{$run()}.}
 }}
 }

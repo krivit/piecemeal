@@ -350,9 +350,10 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param error how to handle worker errors:\describe{
     #' \item{`"save"`}{save the seed, the configuration, and the status, preventing future runs until the file is using `Piecemeal$clean()`.}
     #' \item{`"skip"`}{return the error message as a part of `run()`'s return value, but do not save the RDS file; the next `run()` will attempt to run the worker for that configuration and seed again.}
+    #' \item{`"stop"`}{allow the error to propagate; can be used in conjunction with `Piecemeal$cluster(NULL)` and (global) `options(error = recover)` to debug the worker.}
     #' \item{`"auto"`}{(default) as `"save"`, but if any of the methods that change how each configuration is run (i.e., `$worker()`, `$setup()`, and `$export_vars()`) is called, `$clean()` will be called automatically before the next `$run()`.}
     #' }
-    options = function(split = c(1L, 1L), error = c("auto", "save", "skip")) {
+    options = function(split = c(1L, 1L), error = c("auto", "save", "skip", "stop")) {
       if(!missing(split)) private$.split <- rep_len(split, 2L)
       if(!missing(error)) private$.error <- match.arg(error)
       invisible(self)
@@ -601,7 +602,8 @@ run_config <- function(config, error, env = NULL) {
     treatment$.seed <- seed
 
   set.seed(seed)
-  out <- try(do.call(worker, treatment, envir = env %||% .GlobalEnv), silent = TRUE)
+  out <- if (error == "stop") do.call(worker, treatment, envir = env %||% .GlobalEnv)
+         else try(do.call(worker, treatment, envir = env %||% .GlobalEnv), silent = TRUE)
   if(inherits(out, "try-error")) {
     if(error == "skip") return(paste(fn, out, sep = "\n"))
     OK <- FALSE
