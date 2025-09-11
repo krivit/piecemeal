@@ -409,9 +409,9 @@ Piecemeal <- R6Class("Piecemeal",
       cat("Ready to execute?", if(!inherits(try(private$.check_args()), "try-error") && length(private$.seeds) && length(private$.worker)) "Yes." else "No.", "\n")
     },
 
-    #' @description Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, and the errors encountered.
-    #' @param ... additional arguments, currently unused.
-    summary = function(...) {
+    #' @description Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, the errors encountered, and, if started, the estimated time to completion at the current rate.
+    #' @param ... additional arguments, currently passed to `Piecemeal$eta()`.
+    status = function(...) {
       # We only want the output if it's an error.
       l <- self$result_list(trt_tf = \(trt) NULL, out_tf = \(out) if(is(out, "try-error")) out else NULL)
       Result <- map_chr(l, function(o)
@@ -428,14 +428,15 @@ Piecemeal <- R6Class("Piecemeal",
 
       o <- table(Result)
       attr(o, "outdir") <- private$.outdir
-      class(o) <- c("summary.Piecemeal", class(o))
+      if ("Done" %in% o) attr(o, "eta") <- self$eta(...)
+      class(o) <- c("Piecemeal_status", class(o))
       o
     },
 
     #' @description Estimate the rate at which runs are being completed and the estimated time left.
     #' @param window initial time window to use, either a [`difftime`] object or the number in seconds; defaults to 1 hour.
     #' @details The window used is actually between the last completed run and the earliest run in the `window` before that. This allows to take an interrupted simulation and estimate how much more time (at the most recent rate) is needed.
-    #' @note The estimation method is a simple ratio, so it may be biased under some circumstances.
+    #' @note The estimation method is a simple ratio, so it may be biased under some circumstances. Also, it does not check if the runs have been completed successfully.
     #' @return A list with elements `window`, `recent`, `cost`, `left`, `rate`, and `eta`, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
     eta = function(window = 3600) {
       if(is(window, "difftime")) window <- as.numeric(window, units = "secs")
@@ -456,7 +457,7 @@ Piecemeal <- R6Class("Piecemeal",
 
       cost <- window / recent
       structure(list(window = window, recent = recent, cost = cost, rate = 1/cost, left = left * cost, eta = Sys.time() + left * cost, inprog = inprog),
-                class = "eta.Piecemeal", outdir = private$.outdir)
+                class = "Piecemeal_eta", outdir = private$.outdir)
     }
   )
   )
@@ -464,15 +465,19 @@ Piecemeal <- R6Class("Piecemeal",
 #' @noRd
 #' @export
 summary.Piecemeal <- function(object, ...) {
-  object$summary(...)
+  object$status(...)
 }
 
 #' @noRd
 #' @export
-print.summary.Piecemeal <- function(x, ...) {
+print.Piecemeal_status <- function(x, ...) {
   cat("A Piecemeal simulation\n")
   cat("Output directory:", attr(x, "outdir"), "\n\n")
   print(as.data.frame(x))
+  if (!is.null(attr(x, "eta"))) {
+    cat("\n")
+    print(attr(x, "eta"))
+  }
   invisible(x)
 }
 
@@ -507,7 +512,7 @@ format.rate <- function(x, ...) {
 
 #' @noRd
 #' @export
-print.eta.Piecemeal <- function(x, ...) {
+print.Piecemeal_eta <- function(x, ...) {
   cat("A Piecemeal simulation ETA calculation\n")
   cat("Output directory:", attr(x, "outdir"), "\n")
   cat("Based on", x$recent, "completions in", format(find_time_unit(x$window), digits = 1), "\n\n")

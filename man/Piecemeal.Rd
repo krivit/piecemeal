@@ -16,7 +16,7 @@ Errors in the worker function are caught and error messages saved and returned.
 \note{
 If no treatment is specified, the function is called with no arguments (or just \code{.seed}).
 
-The estimation method is a simple ratio, so it may be biased under some circumstances.
+The estimation method is a simple ratio, so it may be biased under some circumstances. Also, it does not check if the runs have been completed successfully.
 }
 \examples{
 # Initialise, with the output directory.
@@ -74,7 +74,7 @@ sim$result_df()
 \item \href{#method-Piecemeal-erred}{\code{Piecemeal$erred()}}
 \item \href{#method-Piecemeal-options}{\code{Piecemeal$options()}}
 \item \href{#method-Piecemeal-print}{\code{Piecemeal$print()}}
-\item \href{#method-Piecemeal-summary}{\code{Piecemeal$summary()}}
+\item \href{#method-Piecemeal-status}{\code{Piecemeal$status()}}
 \item \href{#method-Piecemeal-eta}{\code{Piecemeal$eta()}}
 \item \href{#method-Piecemeal-clone}{\code{Piecemeal$clone()}}
 }
@@ -422,18 +422,18 @@ Print the current simulation settings, including whether there is enough informa
 }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Piecemeal-summary"></a>}}
-\if{latex}{\out{\hypertarget{method-Piecemeal-summary}{}}}
-\subsection{Method \code{summary()}}{
-Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, and the errors encountered.
+\if{html}{\out{<a id="method-Piecemeal-status"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-status}{}}}
+\subsection{Method \code{status()}}{
+Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, the errors encountered, and, if started, the estimated time to completion at the current rate.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$summary(...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$status(...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{...}}{additional arguments, currently unused.}
+\item{\code{...}}{additional arguments, currently passed to \code{Piecemeal$eta()}.}
 }
 \if{html}{\out{</div>}}
 }

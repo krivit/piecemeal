@@ -100,9 +100,9 @@ We can now execute this setup. It will print a summary of the results of each ru
 sim$run()
 ```
 
-We can view this summary any time as well.
+We can also view a summary of completed, pending, and ongoing runs any time. If any runs have been completed, an estimated time to finish the rest at the current rate will also be estimated.
 ```{r}
-summary(sim) # or sim$summary()
+sim$status() # or summary(sim)
 ```
 
 Looks like all configurations failed, because the worker nodes can't
@@ -195,6 +195,7 @@ running.)
 ```{r}
 sim$eta()
 ```
+`sim$status()` will also calculate and print the estimate, but it is typically much slower.
 
 In any case, we resume our run:
 ```{r}
