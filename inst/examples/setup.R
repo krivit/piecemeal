@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 library(piecemeal)
 
 # Piecemeal is an R6 class, so we access its methods using $.
