@@ -14,7 +14,7 @@ This package addresses a common problem of running a simulation with large numbe
 * If one underestimates the amount of time all the jobs will take, all results are lost.
 * Conversely, if the cluster is freer than anticipated, it's too late to queue another job to get things done twice as fast.
 
-This can be worked around in a variety of ways. Functions can be wrapped in `try()`. Simulation inputs and random seed can be stored alongside the output. Rather than returning the result to the manager process, the worker can save its results to a unique file, with the results collated at the end. `piecemeal` automates this. Here are some of its features:
+This can be worked around in a variety of ways. Functions can be wrapped in `try()`. Simulation inputs and random seed can be stored alongside the output. Rather than returning the result to the manager process, the worker can save its results to a unique file, with the results collated at the end. {piecemeal} automates this. Here are some of its features:
 
 * It encapsulates simulation settings, from the experiment design to the cluster settings to which variables need to be sent to the worker nodes in a single object: you specify what you need, then just tell it to run, and it executes your instructions.
 * The individual run results are accessible---but only if you want to see them.
@@ -25,7 +25,7 @@ This can be worked around in a variety of ways. Functions can be wrapped in `try
 
 ## Installation
 
-`piecemeal` is not (yet?) on CRAN. It can be installed from [GitHub](https://github.com/) with:
+{piecemeal} is not (yet?) on CRAN. It can be installed from [GitHub](https://github.com/) with:
 ``` r
 # install.packages("remotes")
 remotes::install_github("krivit/piecemeal", build_vignettes = TRUE)
@@ -69,3 +69,4 @@ sim$run()
 sim$result_df()
 ```
 
+When running on a cluster, you may want to put the code for setting-up, the code for running, and the code for postprocessing into separate files. See [inst/examples](inst/examples) for an example.
