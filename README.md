@@ -7,7 +7,7 @@
 [![CRAN status](https://www.r-pkg.org/badges/version/piecemeal)](https://CRAN.R-project.org/package=piecemeal)
 <!-- badges: end -->
 
-This package addresses a common problem of running a simulation with large numbers of treatment combinations and replications on a shared computing cluster. The usual tools such as `parallel` and even `foreach` can be frustrating for a number of reasons:
+This package addresses a common problem of running a simulation with large numbers of treatment combinations and replications on a shared computing cluster. The usual tools such as {parallel} and even {foreach} can be frustrating for a number of reasons:
 
 * If any of the function runs results in an error, all results are lost.
 * Tracking down which configuration resulted in an error and reproducing it can be frustrating, and if the fix does not fix all the errors, one has to start over.
