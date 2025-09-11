@@ -1,6 +1,6 @@
 Package: piecemeal
 Title: A package for wrangling large simulations
-Version: 0.0.1-47
+Version: 0.0.1-48
 Authors@R: person(c("Pavel", "N."), "Krivitsky", role=c("aut", "cre"), email="pavel@statnet.org", comment=c(ORCID="0000-0002-9101-3362"))
 Description: The goal of 'piecemeal' is to simplify running simulation studies made up of many relatively small replications and treatment configurations in a setting (such as a shared a computing cluster) in which the parallel processing may be interrupted due to time limits, errors, or for other reasons.
 License: GPL (>= 3)

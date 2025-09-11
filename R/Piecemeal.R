@@ -48,6 +48,7 @@
 #' @importFrom rlang hash
 #' @import purrr
 #' @importFrom R6 R6Class
+#' @importFrom utils capture.output
 #' @export
 Piecemeal <- R6Class("Piecemeal",
   private = list(
