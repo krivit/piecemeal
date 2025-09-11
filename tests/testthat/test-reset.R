@@ -1,0 +1,10 @@
+test_that("Piecemeal reset deletes results", {
+  outdir <- tempfile("piecemeal_test_")
+  sim <- Piecemeal$new(outdir)
+  sim$factorial(a = 1:2)$nrep(1)
+  sim$worker(function(a, .seed) a + .seed)
+  sim$run()
+  expect_true(length(list.files(outdir, recursive = TRUE)) > 0)
+  sim$reset(confirm = FALSE)
+  expect_false(dir.exists(outdir))
+})

@@ -11,5 +11,8 @@ Depends: R (>= 4.1.0)
 Imports: R6, filelock, rlang, purrr
 Suggests:
     knitr,
+    testthat (>= 3.2.3),
     rmarkdown
 VignetteBuilder: knitr
+Config/testthat/parallel: true
+Config/testthat/edition: 3

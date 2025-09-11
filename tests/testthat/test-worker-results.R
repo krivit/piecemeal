@@ -1,0 +1,12 @@
+test_that("Piecemeal runs a simple worker and collects results", {
+  outdir <- tempfile("piecemeal_test_")
+  sim <- Piecemeal$new(outdir)
+  sim$factorial(a = 1:2)$nrep(2)
+  sim$worker(function(a, .seed) a + .seed)
+  res <- sim$run(shuffle = FALSE)
+  df <- sim$result_df()
+  expect_equal(nrow(df), 4)
+  expect_true(all(df$a %in% 1:2))
+  expect_true(all(df$.seed %in% 1:2))
+  unlink(outdir, recursive = TRUE)
+})
