@@ -70,12 +70,13 @@ Piecemeal <- R6Class("Piecemeal",
         keep(is_locked)
     },
     .check_args = function(which = TRUE) {
-      if(length(private$.treatments)) {
+      anames <- suppressWarnings(names(formals(private$.worker)))
+      if (length(private$.treatments)) {
         for(i in seq_along(private$.treatments)[which]) {
           treatment <- private$.treatments[[i]]
           if(".seed" %in% names(treatment))
             stop("In treatment configuration ", i, " argument ", sQuote(".seed"), " is reserved by ", sQuote("Piecemeal"), " if you wish to provide your own seed, use a different argument name.")
-          astart <- if(".seed" %in% names(formals(private$.worker))) list("", ".seed") else list("")
+          astart <- if(".seed" %in% anames) list("", ".seed") else list("")
 
           tryCatch(match.call(private$.worker, as.call(c(astart, treatment))),
                    error = function(e){
@@ -85,7 +86,7 @@ Piecemeal <- R6Class("Piecemeal",
                    })
         }
       } else {
-        astart <- if(".seed" %in% names(formals(private$.worker))) list("", ".seed") else list("")
+        astart <- if(".seed" %in% anames) list("", ".seed") else list("")
 
         tryCatch(match.call(private$.worker, as.call(astart)),
                  error = function(e){
