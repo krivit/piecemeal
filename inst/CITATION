@@ -1,0 +1,3 @@
+citHeader("If you use this package to conduct a simulation study used in a publication, we would appreciate a citation and/or an acknowledgement.")
+
+citation(auto = meta)
