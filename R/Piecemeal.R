@@ -259,7 +259,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' \describe{
     #' \item{`treatment`}{arguments passed to the worker}
     #' \item{`seed`}{the seed set just before calling the worker}
-    #' \item{`output`}{value returned by the worker, or `try-error`}
+    #' \item{`output`}{value returned by the worker, or a `try-error` returned by [try()]}
     #' \item{`OK`}{whether the worker succeeded or produced an error}
     #' \item{`config`}{miscellaneous configuration settings such as the file name}
     #' }
@@ -323,8 +323,9 @@ Piecemeal <- R6Class("Piecemeal",
       invisible(self)
     },
 
-    #' @description Delete the result files for which the worker function failed and/or for which the files were corrupted, or based on some other predicate.
+    #' @description Delete the result files for which the worker function produced an error and/or which were somehow corrupted, or based on some other predicate.
     #' @param which a function of a result list (see `Piecemeal$result_list()`) returning `TRUE` if the result file is to be deleted and `FALSE` otherwise.
+    #' @note If `Piecemeal$options(error = "auto")` (the default) is set, changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run `clean()` before the next run.
     clean = function(which = function(res) !res$OK) {
       done <- private$.done()
       del <- done |> map_lgl(\(fn) which(safe_readRDS(fn)), .progress = "Loading and filtering")
@@ -350,7 +351,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Set miscellaneous options.
     #' @param split a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.
     #' @param error how to handle worker errors:\describe{
-    #' \item{`"save"`}{save the seed, the configuration, and the status, preventing future runs until the file is using `Piecemeal$clean()`.}
+    #' \item{`"save"`}{save the seed, the configuration, and the status, preventing future runs until the file is removed using `Piecemeal$clean()`.}
     #' \item{`"skip"`}{return the error message as a part of `run()`'s return value, but do not save the RDS file; the next `run()` will attempt to run the worker for that configuration and seed again.}
     #' \item{`"stop"`}{allow the error to propagate; can be used in conjunction with `Piecemeal$cluster(NULL)` and (global) `options(error = recover)` to debug the worker.}
     #' \item{`"auto"`}{(default) as `"save"`, but if any of the methods that change how each configuration is run (i.e., `$worker()`, `$setup()`, and `$export_vars()`) is called, `$clean()` will be called automatically before the next `$run()`.}
@@ -410,7 +411,7 @@ Piecemeal <- R6Class("Piecemeal",
       cat("Ready to execute?", if(!inherits(try(private$.check_args()), "try-error") && length(private$.seeds) && length(private$.worker)) "Yes." else "No.", "\n")
     },
 
-    #' @description Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, the errors encountered, and, if started, the estimated time to completion at the current rate.
+    #' @description Summarise the current status of the simulation, including the number of runs succeeded, the number of runs still to be done, the number of runs currently running, the errors encountered, and, if started, the estimated time to completion at the current rate.
     #' @param ... additional arguments, currently passed to `Piecemeal$eta()`.
     status = function(...) {
       # We only want the output if it's an error.
@@ -434,7 +435,7 @@ Piecemeal <- R6Class("Piecemeal",
       o
     },
 
-    #' @description Estimate the rate at which runs are being completed and the estimated time left.
+    #' @description Estimate the rate at which runs are being completed and how much more time is needed.
     #' @param window initial time window to use, either a [`difftime`] object or the number in seconds; defaults to 1 hour.
     #' @details The window used is actually between the last completed run and the earliest run in the `window` before that. This allows to take an interrupted simulation and estimate how much more time (at the most recent rate) is needed.
     #' @note The estimation method is a simple ratio, so it may be biased under some circumstances. Also, it does not check if the runs have been completed successfully.

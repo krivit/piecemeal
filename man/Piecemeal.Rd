@@ -16,6 +16,8 @@ Errors in the worker function are caught and error messages saved and returned.
 \note{
 If no treatment is specified, the function is called with no arguments (or just \code{.seed}).
 
+If \code{Piecemeal$options(error = "auto")} (the default) is set, changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run \code{clean()} before the next run.
+
 The estimation method is a simple ratio, so it may be biased under some circumstances. Also, it does not check if the runs have been completed successfully.
 }
 \examples{
@@ -301,7 +303,7 @@ A list of lists containing the contents of the result files.
 \describe{
 \item{\code{treatment}}{arguments passed to the worker}
 \item{\code{seed}}{the seed set just before calling the worker}
-\item{\code{output}}{value returned by the worker, or \code{try-error}}
+\item{\code{output}}{value returned by the worker, or a \code{try-error} returned by \code{\link[=try]{try()}}}
 \item{\code{OK}}{whether the worker succeeded or produced an error}
 \item{\code{config}}{miscellaneous configuration settings such as the file name}
 }
@@ -357,7 +359,7 @@ Clear the simulation results so far.
 \if{html}{\out{<a id="method-Piecemeal-clean"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-clean}{}}}
 \subsection{Method \code{clean()}}{
-Delete the result files for which the worker function failed and/or for which the files were corrupted, or based on some other predicate.
+Delete the result files for which the worker function produced an error and/or which were somehow corrupted, or based on some other predicate.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Piecemeal$clean(which = function(res) !res$OK)}\if{html}{\out{</div>}}
 }
@@ -395,7 +397,7 @@ Set miscellaneous options.
 \item{\code{split}}{a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.}
 
 \item{\code{error}}{how to handle worker errors:\describe{
-\item{\code{"save"}}{save the seed, the configuration, and the status, preventing future runs until the file is using \code{Piecemeal$clean()}.}
+\item{\code{"save"}}{save the seed, the configuration, and the status, preventing future runs until the file is removed using \code{Piecemeal$clean()}.}
 \item{\code{"skip"}}{return the error message as a part of \code{run()}'s return value, but do not save the RDS file; the next \code{run()} will attempt to run the worker for that configuration and seed again.}
 \item{\code{"stop"}}{allow the error to propagate; can be used in conjunction with \code{Piecemeal$cluster(NULL)} and (global) \code{options(error = recover)} to debug the worker.}
 \item{\code{"auto"}}{(default) as \code{"save"}, but if any of the methods that change how each configuration is run (i.e., \verb{$worker()}, \verb{$setup()}, and \verb{$export_vars()}) is called, \verb{$clean()} will be called automatically before the next \verb{$run()}.}
@@ -425,7 +427,7 @@ Print the current simulation settings, including whether there is enough informa
 \if{html}{\out{<a id="method-Piecemeal-status"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-status}{}}}
 \subsection{Method \code{status()}}{
-Summarise the current state of the simulation, including the number of runs succeeded, the number of runs still to be done, the errors encountered, and, if started, the estimated time to completion at the current rate.
+Summarise the current status of the simulation, including the number of runs succeeded, the number of runs still to be done, the number of runs currently running, the errors encountered, and, if started, the estimated time to completion at the current rate.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Piecemeal$status(...)}\if{html}{\out{</div>}}
 }
@@ -442,7 +444,7 @@ Summarise the current state of the simulation, including the number of runs succ
 \if{html}{\out{<a id="method-Piecemeal-eta"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-eta}{}}}
 \subsection{Method \code{eta()}}{
-Estimate the rate at which runs are being completed and the estimated time left.
+Estimate the rate at which runs are being completed and how much more time is needed.
 \subsection{Usage}{
 \if{html}{\out{<div class="r">}}\preformatted{Piecemeal$eta(window = 3600)}\if{html}{\out{</div>}}
 }
