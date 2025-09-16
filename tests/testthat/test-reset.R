@@ -1,6 +1,6 @@
 test_that("Piecemeal reset deletes results", {
   outdir <- tempfile("piecemeal_test_")
-  sim <- Piecemeal$new(outdir)
+  sim <- piecemeal::init(outdir)
   sim$factorial(a = 1:2)$nrep(1)
   sim$worker(function(a, .seed) a + .seed)
   sim$run()

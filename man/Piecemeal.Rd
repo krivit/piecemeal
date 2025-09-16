@@ -22,7 +22,7 @@ The estimation method is a simple ratio, so it may be biased under some circumst
 }
 \examples{
 # Initialise, with the output directory.
-sim <- Piecemeal$new(file.path(tempdir(), "piecemeal_demo"))
+sim <- piecemeal::init(file.path(tempdir(), "piecemeal_demo"))
 # Clear the previous simulation, if present.
 sim$reset()
 

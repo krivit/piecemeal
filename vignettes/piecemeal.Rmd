@@ -51,7 +51,7 @@ outdir <- file.path(tempdir(), "piecemeal_demo")
 
 Initialise the `Piecemeal` object.
 ```{r}
-sim <- piecemeal::Piecemeal$new(outdir)
+sim <- piecemeal::init(outdir) # short for `piecemeal::Piecemeal$new(outdir)`
 ```
 
 The following will clear all simulation results.

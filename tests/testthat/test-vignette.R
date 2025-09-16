@@ -2,7 +2,7 @@
 
 # 1. Setup
 outdir <- file.path(tempdir(), "piecemeal_vignette_test")
-sim <- Piecemeal$new(outdir)
+sim <- piecemeal::init(outdir)
 sim$reset(confirm = FALSE)
 sim$cluster(2)
 sim$factorial(x = 2^(0:1), y = 3^(0:3))

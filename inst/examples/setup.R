@@ -4,7 +4,7 @@ library(piecemeal)
 
 # Piecemeal is an R6 class, so we access its methods using $.
 # Initialise, with the output directory.
-sim <- Piecemeal$new(file.path(tempdir(), "piecemeal_demo"))
+sim <- piecemeal::init(file.path(tempdir(), "piecemeal_demo"))
 
 # Set up a simulation:
 sim$

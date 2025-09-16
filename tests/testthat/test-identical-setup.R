@@ -6,14 +6,14 @@ test_that("Identical Piecemeal setups produce identical results", {
     list(p = x * y, u = runif(1))
   }
   # Setup 1
-  sim1 <- Piecemeal$new(outdir1)
+  sim1 <- piecemeal::init(outdir1)
   sim1$factorial(x = 1:2, y = 3:4)$nrep(3)
   sim1$worker(worker_fun)
   sim1$run(shuffle = FALSE)
   df1 <- sim1$result_df()
 
   # Setup 2 (identical)
-  sim2 <- Piecemeal$new(outdir2)
+  sim2 <- piecemeal::init(outdir2)
   sim2$factorial(x = 1:2, y = 3:4)$nrep(3)
   sim2$worker(worker_fun)
   sim2$run(shuffle = FALSE)

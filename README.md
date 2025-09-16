@@ -37,11 +37,10 @@ The current version does not need compilation, so it can be installed on systems
 This is a basic example. For a more involved example, including debuging the simulation, see the vignette (`vignette("piecemeal")`).
 
 ``` r
-library(piecemeal)
-
-# Piecemeal is an R6 class, so we access its methods using $.
-# Initialise, with the output directory.
-sim <- Piecemeal$new(file.path(tempdir(), "piecemeal_demo"))
+# Piecemeal is an R6 class, so we access its methods using $. Since
+# the package doesn't have any other functions, a shorthand for
+# initialising is provide as well:
+sim <- piecemeal::init(file.path(tempdir(), "piecemeal_demo"))
 # Clear the previous simulation, if present.
 sim$reset()
 

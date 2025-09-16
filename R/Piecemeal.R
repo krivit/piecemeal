@@ -12,7 +12,7 @@
 #' 
 #' @examples
 #' # Initialise, with the output directory.
-#' sim <- Piecemeal$new(file.path(tempdir(), "piecemeal_demo"))
+#' sim <- piecemeal::init(file.path(tempdir(), "piecemeal_demo"))
 #' # Clear the previous simulation, if present.
 #' sim$reset()
 #'
@@ -463,6 +463,22 @@ Piecemeal <- R6Class("Piecemeal",
     }
   )
   )
+
+#' A convenience function for initialising [`Piecemeal`] objects.
+#'
+#' There is rarely a reason to attach \pkg{piecemeal} via [library()], so `piecemeal::init(outdir)` is provided as shorthand for [`Piecemeal`]`$new(outdir)`.
+#' @param outdir the directory to hold the partial simulation results.
+#' @return A [`Piecemeal`] object.
+#' @seealso [`Piecemeal`]
+#' @examples
+#' outdir <- file.path(tempdir(), "piecemeal_demo")
+#' sim <- piecemeal::init(outdir)
+#' # a.k.a. piecemeal::Piecemeal$new(outdir)
+#' # a.k.a.
+#' # library(piecemeal)
+#' # Piecemeal$new(outdir)
+#' @export
+init <- function(outdir) Piecemeal$new(outdir)
 
 #' @noRd
 #' @export
