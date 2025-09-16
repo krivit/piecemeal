@@ -1,7 +1,5 @@
 #!/usr/bin/env Rscript
 
-library(piecemeal)
-
 # Piecemeal is an R6 class, so we access its methods using $.
 # Initialise, with the output directory.
 sim <- piecemeal::init(file.path(tempdir(), "piecemeal_demo"))
