@@ -1,3 +1,6 @@
 ^\.github$
 \.RData
 \.Rhistory
+^\.vscode/
+.*\.code-workspace
+^README.md$
