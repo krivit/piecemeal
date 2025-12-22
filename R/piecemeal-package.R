@@ -9,5 +9,5 @@
 #'
 #' This can be worked around in a variety of ways. Functions can be wrapped in [try()]. Rather than returning the result to the manager process, the worker can save its results to a unique file, with the results collated at the end. [`Piecemeal`] automates this, and keeps careful track of inputs and random seeds, ensuring that problematic realisations can be located and debugged quickly and efficiently. A locking system even makes it possible to have multiple jobs running the same study on the same cluster without interfering with each other.
 #'
-#' @seealso The [`Piecemeal`] [`R6`] class for details, the [vignette (`vignette("piecemeal")`)](../doc/piecemeal.html) for a worked example, and files in \file{examples/} for a typical setup on a cluster.
+#' @seealso The [`Piecemeal`] [`R6`] class for details, the [vignette (`vignette("piecemeal")`)](../doc/piecemeal.html) for a worked example, and files in the \file{examples/} subdirectory of the package installation (likely \file{\Sexpr[stage=render,results=text]{system.file("examples", package = "piecemeal")}} on your system) for a typical setup on a cluster.
 "_PACKAGE"
