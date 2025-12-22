@@ -25,7 +25,20 @@ This can be worked around in a variety of ways. Functions can be wrapped in `try
 
 ## Installation
 
-{piecemeal} is not (yet?) on CRAN. It can be installed from [GitHub](https://github.com/) with:
+The easiest way is to install it from CRAN:
+
+``` r
+install.packages("piecemeal")
+```
+
+### Development version
+
+To get a bug fix or to use a feature from the development version, you can install the development version of {piecemeal} from GitHub, depending on your preferred tool:
+``` r
+# install.packages("pak")
+pak::pak("krivit/piecemeal")
+```
+or
 ``` r
 # install.packages("remotes")
 remotes::install_github("krivit/piecemeal", build_vignettes = TRUE)
