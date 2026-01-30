@@ -65,9 +65,14 @@ Piecemeal <- R6Class("Piecemeal",
     .toclean = FALSE,
     .done = function() list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE),
     .doing = function() {
-      list.files(private$.outdir, ".*\\.rds.lock$",
-                 full.names = TRUE, recursive = TRUE) |>
-        keep(is_locked)
+      files <- list.files(private$.outdir, ".*\\.rds.lock$",
+                          full.names = TRUE, recursive = TRUE)
+      ## This is done because purrr::keep() doesn't (officially)
+      ## support .progress= arguments. See
+      ## https://github.com/tidyverse/purrr/issues/1249 .
+      ##
+      ## TODO: Check that this is still the case before each release.
+      files[map_lgl(files, is_locked, .progress = "Checking in-progress runs")]
     },
     .check_args = function(which = TRUE) {
       anames <- suppressWarnings(names(formals(private$.worker)))
