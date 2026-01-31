@@ -123,7 +123,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Create a new `Piecemeal` instance.
     #' @param outdir the directory to hold the partial simulation results.
     initialize = function(outdir) {
-      private$.outdir <- outdir
+      private$.outdir <- gsub("/$", "", outdir)
     },
 
     #' @description Cluster settings for the piecemeal run.
