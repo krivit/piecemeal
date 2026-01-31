@@ -18,6 +18,7 @@ empty_result <- function() {
 #' @param outdir The output directory
 #' @return Path to the consolidated.db file
 #' @keywords internal
+#' @noRd
 get_db_path <- function(outdir) {
   file.path(outdir, "consolidated.db")
 }
@@ -26,6 +27,7 @@ get_db_path <- function(outdir) {
 #' @param outdir The output directory
 #' @return A database connection
 #' @keywords internal
+#' @noRd
 db_connect <- function(outdir) {
   db_path <- get_db_path(outdir)
   con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
@@ -48,6 +50,7 @@ db_connect <- function(outdir) {
 #' @param filename The filename (basename) of the result
 #' @param rds_data The serialized RDS data as raw bytes
 #' @keywords internal
+#' @noRd
 db_store_result <- function(con, filename, rds_data) {
   # Use list() to properly wrap the blob for RSQLite
   DBI::dbExecute(con, "
@@ -60,6 +63,7 @@ db_store_result <- function(con, filename, rds_data) {
 #' @param filename The filename (basename) of the result
 #' @return The deserialized result list, or NULL if not found
 #' @keywords internal
+#' @noRd
 db_get_result <- function(con, filename) {
   result <- DBI::dbGetQuery(con, "
     SELECT data FROM results WHERE filename = ?
@@ -74,6 +78,7 @@ db_get_result <- function(con, filename) {
 #' @param con Database connection
 #' @return Character vector of filenames
 #' @keywords internal
+#' @noRd
 db_list_filenames <- function(con) {
   result <- DBI::dbGetQuery(con, "SELECT filename FROM results")
   result$filename
@@ -84,6 +89,7 @@ db_list_filenames <- function(con) {
 #' @param filename The filename (basename) to check
 #' @return Logical indicating if the file exists in the database
 #' @keywords internal
+#' @noRd
 db_has_file <- function(outdir, filename) {
   db_path <- get_db_path(outdir)
   if (!file.exists(db_path)) return(FALSE)
@@ -103,6 +109,7 @@ db_has_file <- function(outdir, filename) {
 #' @param max_files Maximum number of files to consolidate in one call
 #' @return Number of files consolidated
 #' @keywords internal
+#' @noRd
 consolidate_results <- function(outdir, max_files = 1000) {
   # Use a lock file to ensure only one process consolidates at a time
   lock_path <- file.path(outdir, ".consolidate.lock")
@@ -167,6 +174,7 @@ consolidate_results <- function(outdir, max_files = 1000) {
 #' @param filename The filename (can be full path or basename)
 #' @return The result list
 #' @keywords internal
+#' @noRd
 read_result <- function(outdir, filename) {
   # Handle .consolidated virtual paths
   if (grepl("\\.consolidated", filename)) {
