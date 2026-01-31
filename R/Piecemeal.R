@@ -68,9 +68,8 @@ Piecemeal <- R6Class("Piecemeal",
       files <- list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE)
 
       # Get files from consolidated database
-      db_path <- get_db_path(private$.outdir)
-      if (file.exists(db_path)) {
-        con <- db_connect(private$.outdir)
+      con <- db_connect(private$.outdir, create = FALSE)
+      if (!is.null(con)) {
         on.exit(DBI::dbDisconnect(con))
         db_files <- db_list_filenames(con)
         # Return full paths for consistency (use a virtual path prefix)

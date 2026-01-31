@@ -18,11 +18,19 @@ get_db_path <- function(outdir) {
 
 #' Connect to the consolidated database
 #' @param outdir The output directory
-#' @return A database connection
+#' @param create If TRUE (default), creates the database and table if they don't exist.
+#'   If FALSE and the database doesn't exist, returns NULL.
+#' @return A database connection, or NULL if create=FALSE and database doesn't exist
 #' @keywords internal
 #' @noRd
-db_connect <- function(outdir) {
+db_connect <- function(outdir, create = TRUE) {
   db_path <- get_db_path(outdir)
+  
+  # If create is FALSE and database doesn't exist, return NULL
+  if (!create && !file.exists(db_path)) {
+    return(NULL)
+  }
+  
   con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
 
   # Create table if it doesn't exist
@@ -145,9 +153,8 @@ read_result <- function(outdir, filename) {
   if (grepl(".consolidated", filename, fixed = TRUE)) {
     filename <- basename(filename)
     # Read directly from database
-    db_path <- get_db_path(outdir)
-    if (file.exists(db_path)) {
-      con <- db_connect(outdir)
+    con <- db_connect(outdir, create = FALSE)
+    if (!is.null(con)) {
       on.exit(DBI::dbDisconnect(con))
       result <- db_get_result(con, filename)
       if (!is.null(result)) return(result)
@@ -164,9 +171,8 @@ read_result <- function(outdir, filename) {
   base_filename <- basename(filename)
 
   # If not found, try the consolidated database
-  db_path <- get_db_path(outdir)
-  if (file.exists(db_path)) {
-    con <- db_connect(outdir)
+  con <- db_connect(outdir, create = FALSE)
+  if (!is.null(con)) {
     on.exit(DBI::dbDisconnect(con))
 
     result <- db_get_result(con, base_filename)
