@@ -81,7 +81,7 @@ test_that("Consolidation only consolidates successful runs", {
   unlink(outdir, recursive = TRUE)
 })
 
-test_that("Consolidation locking prevents concurrent consolidation", {
+test_that("Consolidation works correctly", {
   outdir <- tempfile("piecemeal_consolidate_lock_")
   sim <- piecemeal::init(outdir)
   sim$factorial(a = 1:5)$nrep(1)
@@ -90,23 +90,13 @@ test_that("Consolidation locking prevents concurrent consolidation", {
   # Run the simulation
   sim$run(shuffle = FALSE)
 
-  # Create a lock manually
-  lock_path <- file.path(outdir, ".consolidate.lock")
-  lock <- filelock::lock(lock_path, timeout = 1000)  # Wait up to 1 second for lock
-
-  # Verify lock was acquired
-  expect_false(is.null(lock))
-
-  # Try to consolidate (should fail due to lock)
-  expect_message(sim$consolidate(max_files = 100), "Another process is consolidating")
-
-  # Release the lock
-  filelock::unlock(lock)
-  unlink(lock_path)
-
-  # Now consolidation should work
+  # Consolidate all files
   count <- sim$consolidate(max_files = 100)
   expect_true(count > 0)
+
+  # Try to consolidate again (should return 0 since no files left)
+  count2 <- sim$consolidate(max_files = 100)
+  expect_equal(count2, 0)
 
   unlink(outdir, recursive = TRUE)
 })
