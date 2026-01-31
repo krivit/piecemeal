@@ -60,12 +60,25 @@ db_store_result <- function(con, filename, rds_data) {
 }
 
 #' Retrieve a result from the consolidated database
-#' @param con Database connection
+#' @param con Database connection or outdir string. If a string, opens the database from that directory.
 #' @param filename The filename (basename) of the result
 #' @return The deserialized result list, or NULL if not found
 #' @keywords internal
 #' @noRd
 db_get_result <- function(con, filename) {
+  # If con is a string, treat it as outdir and open the database
+  close_on_exit <- FALSE
+  if (is.character(con)) {
+    outdir <- con
+    con <- db_connect(outdir, create = FALSE)
+    if (is.null(con)) return(NULL)
+    close_on_exit <- TRUE
+  }
+  
+  if (close_on_exit) {
+    on.exit(DBI::dbDisconnect(con), add = TRUE)
+  }
+  
   result <- DBI::dbGetQuery(con, "
     SELECT data FROM results WHERE filename = ?
   ", params = list(filename))
@@ -153,12 +166,8 @@ read_result <- function(outdir, filename) {
   if (grepl(".consolidated", filename, fixed = TRUE)) {
     filename <- basename(filename)
     # Read directly from database
-    con <- db_connect(outdir, create = FALSE)
-    if (!is.null(con)) {
-      on.exit(DBI::dbDisconnect(con))
-      result <- db_get_result(con, filename)
-      if (!is.null(result)) return(result)
-    }
+    result <- db_get_result(outdir, filename)
+    if (!is.null(result)) return(result)
     return(empty_result)
   }
 
@@ -171,13 +180,8 @@ read_result <- function(outdir, filename) {
   base_filename <- basename(filename)
 
   # If not found, try the consolidated database
-  con <- db_connect(outdir, create = FALSE)
-  if (!is.null(con)) {
-    on.exit(DBI::dbDisconnect(con))
-
-    result <- db_get_result(con, base_filename)
-    if (!is.null(result)) return(result)
-  }
+  result <- db_get_result(outdir, base_filename)
+  if (!is.null(result)) return(result)
 
   # If still not found, return error structure
   empty_result
