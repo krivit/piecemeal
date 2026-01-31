@@ -30,6 +30,7 @@ This is an R package called `piecemeal` that provides tools for managing large s
 - Use markdown in roxygen comments (enabled via `Roxygen: list(markdown = TRUE)`)
 - Include `@examples` sections that demonstrate actual usage
 - Reference related functions using markdown links: `[function_name()]`
+- Suppress Rd file creation for unexported functions (via @noRd)
 
 ## Testing
 
