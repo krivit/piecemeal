@@ -105,12 +105,9 @@ consolidate_results <- function(outdir) {
   })
 
   # Get all .rds files (not .rds.lock or .rds.tmp)
-  all_files <- list.files(outdir, pattern = "\\.rds$", full.names = TRUE, recursive = TRUE)
+  files_to_consolidate <- list.files(outdir, pattern = "\\.rds$", full.names = TRUE, recursive = TRUE)
 
-  if (length(all_files) == 0) return(0)
-
-  # Consolidate all available files
-  files_to_consolidate <- all_files
+  if (length(files_to_consolidate) == 0) return(0)
 
   con <- db_connect(outdir)
   on.exit(DBI::dbDisconnect(con), add = TRUE)
@@ -119,14 +116,8 @@ consolidate_results <- function(outdir) {
   # Note: Future optimization could batch multiple inserts in a single transaction
   # for improved performance when consolidating many files
   for (file_path in files_to_consolidate) {
-    # Read the RDS file to check if it's a successful run
-    result <- tryCatch(
-      readRDS(file_path),
-      error = function(e) NULL
-    )
-
     # Only consolidate if it's a successful run
-    if (!is.null(result) && isTRUE(result$OK)) {
+    if (safe_readRDS(file_path)$OK) {
       # Read raw file contents directly
       rds_data <- readBin(file_path, "raw", n = file.info(file_path)$size)
 
@@ -171,13 +162,6 @@ read_result <- function(outdir, filename) {
 
   # Extract basename for database lookup
   base_filename <- basename(filename)
-
-  # Try to find the file in the directory structure
-  file_path <- list.files(outdir, pattern = paste0("^", base_filename, "$"),
-                         full.names = TRUE, recursive = TRUE)
-  if (length(file_path) > 0 && file.exists(file_path[1])) {
-    return(safe_readRDS(file_path[1]))
-  }
 
   # If not found, try the consolidated database
   db_path <- get_db_path(outdir)
