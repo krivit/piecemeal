@@ -3,6 +3,7 @@
 #' These functions handle consolidation of individual RDS result files
 #' into a SQLite database to reduce inode usage.
 #'
+#' @name consolidate-internals
 #' @keywords internal
 #' @importFrom DBI dbConnect dbDisconnect dbWriteTable dbReadTable dbExecute dbGetQuery dbExistsTable
 #' @importFrom RSQLite SQLite
