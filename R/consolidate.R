@@ -43,9 +43,10 @@ db_connect <- function(outdir) {
 #' @param rds_data The serialized RDS data as raw bytes
 #' @keywords internal
 db_store_result <- function(con, filename, rds_data) {
+  # Use list() to properly wrap the blob for RSQLite
   DBI::dbExecute(con, "
     INSERT OR REPLACE INTO results (filename, data) VALUES (?, ?)
-  ", params = list(filename, rds_data))
+  ", params = list(filename, list(rds_data)))
 }
 
 #' Retrieve a result from the consolidated database

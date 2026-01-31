@@ -629,6 +629,9 @@ safe_readRDS <- function(file, ..., verbose = FALSE) {
            })
 }
 
+# Define %||% operator (infix OR for NULL values)
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
 run_config <- function(config, error, env = NULL) {
   worker <- get(".worker", env %||% .GlobalEnv)
   outdir <- get(".outdir", env %||% .GlobalEnv)
