@@ -83,26 +83,6 @@ db_list_filenames <- function(con) {
   result$filename
 }
 
-#' Check if a file exists in the consolidated database
-#' @param outdir The output directory
-#' @param filename The filename (basename) to check
-#' @return Logical indicating if the file exists in the database
-#' @keywords internal
-#' @noRd
-db_has_file <- function(outdir, filename) {
-  db_path <- get_db_path(outdir)
-  if (!file.exists(db_path)) return(FALSE)
-
-  con <- db_connect(outdir)
-  on.exit(DBI::dbDisconnect(con))
-
-  result <- DBI::dbGetQuery(con, "
-    SELECT 1 FROM results WHERE filename = ? LIMIT 1
-  ", params = list(filename))
-
-  nrow(result) > 0
-}
-
 #' Consolidate individual RDS files into the SQLite database
 #' @param outdir The output directory
 #' @return Number of files consolidated
@@ -171,7 +151,7 @@ consolidate_results <- function(outdir) {
 #' @noRd
 read_result <- function(outdir, filename) {
   # Handle .consolidated virtual paths
-  if (grepl("\\.consolidated", filename)) {
+  if (grepl(".consolidated", filename, fixed = TRUE)) {
     filename <- basename(filename)
     # Read directly from database
     db_path <- get_db_path(outdir)
