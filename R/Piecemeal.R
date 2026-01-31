@@ -639,12 +639,12 @@ run_config <- function(config, error, env = NULL) {
   fn <- config$fn
   subdirs <- config$subdirs
   dn <- do.call(file.path, c(list(outdir), subdirs))
-  dir.create(dn, recursive = TRUE, showWarnings = FALSE)
   fn <- file.path(dn, fn)
 
   if(file.exists(fn)) return(paste(fn, "SKIPPED", sep = "\n")) # If this treatment + seed combination has been run, move on.
 
   # Or, if it's already being run by another process, move on; otherwise, lock it.
+  dir.create(dn, recursive = TRUE, showWarnings = FALSE)
   fnlock <- filelock::lock(paste0(fn, ".lock"), timeout = 0)
   on.exit({
     filelock::unlock(fnlock)
