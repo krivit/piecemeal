@@ -29,16 +29,28 @@ test_that("Consolidation stores and retrieves results correctly", {
   consolidated_results <- sim$result_list()
   expect_equal(length(consolidated_results), initial_count)
 
-  # Check that results are identical
+  # Check that results are identical - verify contents in detail
   for (i in seq_along(initial_results)) {
     expect_equal(initial_results[[i]]$seed, consolidated_results[[i]]$seed)
     expect_equal(initial_results[[i]]$treatment, consolidated_results[[i]]$treatment)
     expect_equal(initial_results[[i]]$output, consolidated_results[[i]]$output)
+    expect_equal(initial_results[[i]]$OK, consolidated_results[[i]]$OK)
+    # Verify the actual computed result value
+    expected_result <- initial_results[[i]]$treatment$a +
+                      initial_results[[i]]$treatment$b +
+                      initial_results[[i]]$seed
+    expect_equal(consolidated_results[[i]]$output$result, expected_result)
   }
 
   # Check that result_df still works
   df <- sim$result_df()
   expect_equal(nrow(df), 8)
+
+  # Verify df contains correct values
+  for (i in seq_len(nrow(df))) {
+    expected_result <- df$a[i] + df$b[i] + df$.seed[i]
+    expect_equal(df$result[i], expected_result)
+  }
 
   unlink(outdir, recursive = TRUE)
 })
@@ -77,6 +89,16 @@ test_that("Consolidation only consolidates successful runs", {
   # Check that the error is still accessible
   ok_count <- sum(sapply(results, function(r) r$OK))
   expect_equal(ok_count, 2)
+
+  # Verify contents of successful consolidated runs
+  successful_results <- results[sapply(results, function(r) r$OK)]
+  expect_equal(length(successful_results), 2)
+  for (r in successful_results) {
+    # Verify the output matches the input
+    expect_equal(r$output$result, r$treatment$a)
+    # Verify it's either a=1 or a=3 (not a=2 which errored)
+    expect_true(r$treatment$a %in% c(1, 3))
+  }
 
   unlink(outdir, recursive = TRUE)
 })
@@ -122,6 +144,15 @@ test_that("Consolidation processes all files at once", {
   # Verify all results are still accessible
   results <- sim$result_list()
   expect_equal(length(results), 10)
+
+  # Verify contents of all consolidated results
+  for (r in results) {
+    expect_true(r$OK)
+    # Verify the output matches the input
+    expect_equal(r$output$result, r$treatment$a)
+    # Verify the value is in the expected range
+    expect_true(r$treatment$a >= 1 && r$treatment$a <= 10)
+  }
 
   unlink(outdir, recursive = TRUE)
 })
