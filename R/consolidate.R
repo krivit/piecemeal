@@ -1,4 +1,4 @@
-#' @importFrom DBI dbConnect dbDisconnect dbWriteTable dbReadTable dbExecute dbGetQuery dbExistsTable
+#' @importFrom DBI dbConnect dbDisconnect dbExecute dbGetQuery dbExistsTable
 #' @importFrom RSQLite SQLite
 #' @importFrom cli cli_progress_along
 #' @keywords internal
