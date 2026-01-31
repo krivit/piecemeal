@@ -129,10 +129,6 @@ consolidate_results <- function(outdir) {
   # Get all .rds files (not .rds.lock or .rds.tmp)
   all_files <- list.files(outdir, pattern = "\\.rds$", full.names = TRUE, recursive = TRUE)
 
-  # Filter out files that are not in subdirectories (keep only leaf result files)
-  # Also exclude consolidated.db if it shows up
-  all_files <- all_files[!grepl("consolidated\\.db", all_files)]
-
   if (length(all_files) == 0) return(0)
 
   # Consolidate all available files

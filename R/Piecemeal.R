@@ -64,9 +64,8 @@ Piecemeal <- R6Class("Piecemeal",
     .error = "auto",
     .toclean = FALSE,
     .done = function() {
-      # Get individual .rds files (excluding consolidated.db)
+      # Get individual .rds files
       files <- list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE)
-      files <- files[!grepl("consolidated\\.db", files)]
 
       # Get files from consolidated database
       db_path <- get_db_path(private$.outdir)
