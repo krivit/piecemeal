@@ -204,3 +204,50 @@ test_that("Consolidation removes empty directories", {
   
   unlink(outdir, recursive = TRUE)
 })
+
+test_that("Consolidation preserves file modification times for ETA", {
+  outdir <- tempfile("piecemeal_mtime_")
+  sim <- piecemeal::init(outdir)
+  sim$factorial(a = 1:3)$nrep(2)
+  sim$worker(function(a) {
+    Sys.sleep(0.1) # Small delay to ensure different mtimes
+    list(result = a)
+  })
+  
+  # Run the simulation
+  sim$run(shuffle = FALSE)
+  
+  # Get the modification times before consolidation
+  done_before <- sim$.done()
+  mtimes_before <- file.info(done_before, extra_cols = FALSE)$mtime
+  names(mtimes_before) <- done_before
+  
+  # Consolidate
+  count <- sim$consolidate()
+  expect_equal(count, 6)
+  
+  # Get the modification times after consolidation
+  done_after <- sim$.done()
+  mtimes_after <- piecemeal:::get_file_mtimes(outdir, done_after)
+  
+  # The mtimes should be preserved (within 1 second tolerance for rounding)
+  expect_equal(length(mtimes_before), length(mtimes_after))
+  
+  # Check that we can get mtimes for consolidated files
+  expect_true(all(!is.na(mtimes_after)))
+  expect_true(all(!is.null(mtimes_after)))
+  
+  # Verify mtimes are in a reasonable range (not zero, not far in future)
+  now <- Sys.time()
+  expect_true(all(mtimes_after > now - 3600)) # Within last hour
+  expect_true(all(mtimes_after <= now + 60))  # Not more than 1 min in future
+  
+  # Test that ETA calculation works with consolidated files
+  # (This should not throw an error)
+  eta_result <- sim$eta(window = 3600)
+  expect_true(!is.null(eta_result))
+  expect_true(is.numeric(eta_result$recent))
+  
+  unlink(outdir, recursive = TRUE)
+})
+

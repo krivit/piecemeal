@@ -480,9 +480,7 @@ Piecemeal <- R6Class("Piecemeal",
       total <- max(1, length(private$.treatments)) * length(private$.seeds)
       left <- total - length(done)
 
-      mtimes <- done |>
-        file.info(extra_cols = FALSE) |>
-        pluck("mtime")
+      mtimes <- get_file_mtimes(private$.outdir, done)
       mtimes <- mtimes[mtimes >= max(mtimes) - window]
 
       recent <- length(mtimes) - 1

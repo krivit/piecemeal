@@ -26,9 +26,19 @@ db_connect <- function(outdir, create = TRUE) {
     DBI::dbExecute(con, "
       CREATE TABLE results (
         filename TEXT PRIMARY KEY,
-        data BLOB NOT NULL
+        data BLOB NOT NULL,
+        mtime REAL NOT NULL
       )
     ")
+  } else {
+    # Check if mtime column exists, add it if missing (for backwards compatibility)
+    columns <- DBI::dbListFields(con, "results")
+    if (!"mtime" %in% columns) {
+      DBI::dbExecute(con, "ALTER TABLE results ADD COLUMN mtime REAL")
+      # Set default mtime to current time for existing rows
+      DBI::dbExecute(con, "UPDATE results SET mtime = ? WHERE mtime IS NULL", 
+                     params = list(as.numeric(Sys.time())))
+    }
   }
 
   con
@@ -38,13 +48,14 @@ db_connect <- function(outdir, create = TRUE) {
 #' @param con Database connection
 #' @param filename The filename (basename) of the result
 #' @param rds_data The serialized RDS data as raw bytes
+#' @param mtime The modification time (as numeric, seconds since epoch)
 #' @keywords internal
 #' @noRd
-db_store_result <- function(con, filename, rds_data) {
+db_store_result <- function(con, filename, rds_data, mtime) {
   # Use list() to properly wrap the blob for RSQLite
   DBI::dbExecute(con, "
-    INSERT OR REPLACE INTO results (filename, data) VALUES (?, ?)
-  ", params = list(filename, list(rds_data)))
+    INSERT OR REPLACE INTO results (filename, data, mtime) VALUES (?, ?, ?)
+  ", params = list(filename, list(rds_data), mtime))
 }
 
 #' Retrieve a result from the consolidated database
@@ -123,12 +134,15 @@ consolidate_results <- function(outdir) {
   for (file_path in files_to_consolidate) {
     # Only consolidate if it's a successful run
     if (safe_readRDS(file_path)$OK) {
+      # Get file info before reading
+      file_mtime <- file.info(file_path)$mtime
+      
       # Read raw file contents directly
       rds_data <- readBin(file_path, "raw", n = file.info(file_path)$size)
 
-      # Store in database
+      # Store in database with modification time
       filename <- basename(file_path)
-      db_store_result(con, filename, rds_data)
+      db_store_result(con, filename, rds_data, as.numeric(file_mtime))
 
       # Delete the original file
       unlink(file_path)
@@ -173,4 +187,50 @@ read_result <- function(outdir, filename) {
     safe_readRDS(filename) # use it directly.
   else  # If not found,
     db_get_result(outdir, basename(filename)) # try the database.
+}
+
+#' Get modification times for files (including consolidated ones)
+#' @param outdir The output directory
+#' @param files Character vector of file paths (can include .consolidated paths)
+#' @return Named numeric vector of mtimes (seconds since epoch), with file paths as names
+#' @keywords internal
+#' @noRd
+get_file_mtimes <- function(outdir, files) {
+  mtimes <- numeric(length(files))
+  names(mtimes) <- files
+  
+  # Separate real files from consolidated files
+  is_consolidated <- grepl(".consolidated", files, fixed = TRUE)
+  
+  # Get mtimes for real files
+  if (any(!is_consolidated)) {
+    real_files <- files[!is_consolidated]
+    real_mtimes <- file.info(real_files, extra_cols = FALSE)$mtime
+    mtimes[!is_consolidated] <- as.numeric(real_mtimes)
+  }
+  
+  # Get mtimes for consolidated files
+  if (any(is_consolidated)) {
+    con <- db_connect(outdir, create = FALSE)
+    if (!is.null(con)) {
+      on.exit(DBI::dbDisconnect(con), add = TRUE)
+      
+      consolidated_files <- files[is_consolidated]
+      basenames <- basename(consolidated_files)
+      
+      # Query mtimes from database
+      for (i in seq_along(basenames)) {
+        result <- DBI::dbGetQuery(con, "
+          SELECT mtime FROM results WHERE filename = ?
+        ", params = list(basenames[i]))
+        
+        if (nrow(result) > 0) {
+          mtimes[is_consolidated][i] <- result$mtime[1]
+        }
+      }
+    }
+  }
+  
+  # Convert to POSIXct for compatibility with existing code
+  as.POSIXct(mtimes, origin = "1970-01-01", tz = "UTC")
 }
