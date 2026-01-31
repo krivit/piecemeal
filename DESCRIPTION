@@ -10,7 +10,7 @@ Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2.9000
 Depends: R (>= 4.2.0)
-Imports: R6, filelock, rlang, purrr, RSQLite, DBI
+Imports: R6, filelock, rlang, purrr, RSQLite, DBI, cli
 Suggests:
     knitr,
     testthat (>= 3.2.3),

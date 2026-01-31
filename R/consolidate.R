@@ -1,5 +1,6 @@
 #' @importFrom DBI dbConnect dbDisconnect dbWriteTable dbReadTable dbExecute dbGetQuery dbExistsTable
 #' @importFrom RSQLite SQLite
+#' @importFrom cli cli_progress_bar cli_progress_update cli_progress_done
 #' @keywords internal
 #' @noRd
 NULL
@@ -122,6 +123,14 @@ consolidate_results <- function(outdir) {
   dirs_to_check <- character()
   # Note: Future optimization could batch multiple inserts in a single transaction
   # for improved performance when consolidating many files
+  
+  # Set up progress bar
+  cli::cli_progress_bar(
+    format = "Consolidating {cli::pb_current}/{cli::pb_total} files",
+    total = length(files_to_consolidate),
+    clear = FALSE
+  )
+  
   for (file_path in files_to_consolidate) {
     # Only consolidate if it's a successful run
     if (safe_readRDS(file_path)$OK) {
@@ -144,7 +153,13 @@ consolidate_results <- function(outdir) {
       while ((dir_path <- dirname(dir_path)) != outdir)
         dirs_to_check <- c(dirs_to_check, dir_path)
     }
+    
+    # Update progress bar
+    cli::cli_progress_update()
   }
+  
+  # Complete progress bar
+  cli::cli_progress_done()
   
   # Remove empty directories (process from deepest to shallowest)
   if (length(dirs_to_check) > 0) {
