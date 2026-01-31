@@ -644,8 +644,15 @@ run_config <- function(config, error, env = NULL) {
   if(file.exists(fn)) return(paste(fn, "SKIPPED", sep = "\n")) # If this treatment + seed combination has been run, move on.
 
   # Or, if it's already being run by another process, move on; otherwise, lock it.
-  dir.create(dn, recursive = TRUE, showWarnings = FALSE)
+  #
+  # Here, the containing directory is created nonempty so that
+  # file.remove() run by consolidate_results() cannot remove it before
+  # lock() gets a chance to create a file in it. Once a lock file is
+  # in place (if it wasn't already), we can remove the placeholder
+  # subdirectory.
+  dir.create(dl <- file.path(dn, "dirlock"), recursive = TRUE, showWarnings = FALSE)
   fnlock <- filelock::lock(paste0(fn, ".lock"), timeout = 0)
+  suppressWarnings(try(unlink(dl, recursive = TRUE), silent = TRUE))
   on.exit({
     filelock::unlock(fnlock)
     unlink(paste0(fn, ".lock"))

@@ -134,11 +134,10 @@ consolidate_results <- function(outdir) {
       unlink(file_path)
       count <- count + 1
       
-      # Track the directory for potential removal
-      dir_path <- dirname(file_path)
-      if (dir_path != outdir) {
+      # Track the directory for potential removal and any ancestors
+      dir_path <- file_path
+      while ((dir_path <- dirname(dir_path)) != outdir)
         dirs_to_check <- c(dirs_to_check, dir_path)
-      }
     }
   }
   
@@ -149,13 +148,12 @@ consolidate_results <- function(outdir) {
     dirs_to_check <- dirs_to_check[order(-nchar(dirs_to_check))]
     
     for (dir_path in dirs_to_check) {
-      # Only remove if directory is empty and is a subdirectory of outdir
-      if (dir.exists(dir_path) && 
-          startsWith(dir_path, outdir) && 
-          dir_path != outdir &&
-          length(list.files(dir_path, all.files = TRUE, no.. = TRUE)) == 0) {
-        unlink(dir_path, recursive = TRUE)
-      }
+      # Only remove if directory is empty.
+      #
+      # Note: This does not work on Windows, but is the only way to do
+      # it guaranteed not to destroy data when there are multiple
+      # processes running.
+      suppressWarnings(try(file.remove(dir_path), silent = TRUE))
     }
   }
 
