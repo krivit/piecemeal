@@ -30,15 +30,6 @@ db_connect <- function(outdir, create = TRUE) {
         mtime REAL NOT NULL
       )
     ")
-  } else {
-    # Check if mtime column exists, add it if missing (for backwards compatibility)
-    columns <- DBI::dbListFields(con, "results")
-    if (!"mtime" %in% columns) {
-      DBI::dbExecute(con, "ALTER TABLE results ADD COLUMN mtime REAL")
-      # Set default mtime to current time for existing rows
-      DBI::dbExecute(con, "UPDATE results SET mtime = ? WHERE mtime IS NULL", 
-                     params = list(as.numeric(Sys.time())))
-    }
   }
 
   con
