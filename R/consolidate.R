@@ -1,0 +1,203 @@
+#' SQLite consolidation functions for piecemeal
+#'
+#' These functions handle consolidation of individual RDS result files
+#' into a SQLite database to reduce inode usage.
+#'
+#' @keywords internal
+#' @importFrom DBI dbConnect dbDisconnect dbWriteTable dbReadTable dbExecute dbGetQuery dbExistsTable
+#' @importFrom RSQLite SQLite
+NULL
+
+#' Get the path to the consolidated database file
+#' @param outdir The output directory
+#' @return Path to the consolidated.db file
+#' @keywords internal
+get_db_path <- function(outdir) {
+  file.path(outdir, "consolidated.db")
+}
+
+#' Connect to the consolidated database
+#' @param outdir The output directory
+#' @return A database connection
+#' @keywords internal
+db_connect <- function(outdir) {
+  db_path <- get_db_path(outdir)
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+
+  # Create table if it doesn't exist
+  if (!DBI::dbExistsTable(con, "results")) {
+    DBI::dbExecute(con, "
+      CREATE TABLE results (
+        filename TEXT PRIMARY KEY,
+        data BLOB NOT NULL
+      )
+    ")
+  }
+
+  con
+}
+
+#' Store a result in the consolidated database
+#' @param con Database connection
+#' @param filename The filename (basename) of the result
+#' @param rds_data The serialized RDS data as raw bytes
+#' @keywords internal
+db_store_result <- function(con, filename, rds_data) {
+  DBI::dbExecute(con, "
+    INSERT OR REPLACE INTO results (filename, data) VALUES (?, ?)
+  ", params = list(filename, rds_data))
+}
+
+#' Retrieve a result from the consolidated database
+#' @param con Database connection
+#' @param filename The filename (basename) of the result
+#' @return The deserialized result list, or NULL if not found
+#' @keywords internal
+db_get_result <- function(con, filename) {
+  result <- DBI::dbGetQuery(con, "
+    SELECT data FROM results WHERE filename = ?
+  ", params = list(filename))
+
+  if (nrow(result) == 0) return(NULL)
+
+  unserialize(result$data[[1]])
+}
+
+#' List all filenames in the consolidated database
+#' @param con Database connection
+#' @return Character vector of filenames
+#' @keywords internal
+db_list_filenames <- function(con) {
+  result <- DBI::dbGetQuery(con, "SELECT filename FROM results")
+  result$filename
+}
+
+#' Check if a file exists in the consolidated database
+#' @param outdir The output directory
+#' @param filename The filename (basename) to check
+#' @return Logical indicating if the file exists in the database
+#' @keywords internal
+db_has_file <- function(outdir, filename) {
+  db_path <- get_db_path(outdir)
+  if (!file.exists(db_path)) return(FALSE)
+
+  con <- db_connect(outdir)
+  on.exit(DBI::dbDisconnect(con))
+
+  result <- DBI::dbGetQuery(con, "
+    SELECT 1 FROM results WHERE filename = ? LIMIT 1
+  ", params = list(filename))
+
+  nrow(result) > 0
+}
+
+#' Consolidate individual RDS files into the SQLite database
+#' @param outdir The output directory
+#' @param max_files Maximum number of files to consolidate in one call
+#' @return Number of files consolidated
+#' @keywords internal
+consolidate_results <- function(outdir, max_files = 1000) {
+  # Use a lock file to ensure only one process consolidates at a time
+  lock_path <- file.path(outdir, ".consolidate.lock")
+  dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+
+  lock <- filelock::lock(lock_path, timeout = 0)
+  if (is.null(lock)) {
+    message("Another process is consolidating. Skipping.")
+    return(0)
+  }
+
+  on.exit({
+    filelock::unlock(lock)
+    unlink(lock_path)
+  })
+
+  # Get all .rds files (not .rds.lock or .rds.tmp)
+  all_files <- list.files(outdir, pattern = "\\.rds$", full.names = TRUE, recursive = TRUE)
+
+  # Filter out files that are not in subdirectories (keep only leaf result files)
+  # Also exclude consolidated.db if it shows up
+  all_files <- all_files[!grepl("consolidated\\.db", all_files)]
+
+  if (length(all_files) == 0) return(0)
+
+  # Read up to max_files and consolidate them
+  files_to_consolidate <- head(all_files, max_files)
+
+  con <- db_connect(outdir)
+  on.exit(DBI::dbDisconnect(con), add = TRUE)
+
+  count <- 0
+  for (file_path in files_to_consolidate) {
+    # Read the RDS file
+    result <- tryCatch(
+      readRDS(file_path),
+      error = function(e) NULL
+    )
+
+    # Only consolidate if it's a successful run
+    if (!is.null(result) && isTRUE(result$OK)) {
+      # Serialize to raw bytes
+      rds_data <- serialize(result, NULL)
+
+      # Store in database
+      filename <- basename(file_path)
+      db_store_result(con, filename, rds_data)
+
+      # Delete the original file
+      unlink(file_path)
+      count <- count + 1
+    }
+  }
+
+  count
+}
+
+#' Read a result from either individual file or consolidated database
+#' @param outdir The output directory
+#' @param filename The filename (can be full path or basename)
+#' @return The result list
+#' @keywords internal
+read_result <- function(outdir, filename) {
+  # Handle .consolidated virtual paths
+  if (grepl("\\.consolidated", filename)) {
+    filename <- basename(filename)
+    # Read directly from database
+    db_path <- get_db_path(outdir)
+    if (file.exists(db_path)) {
+      con <- db_connect(outdir)
+      on.exit(DBI::dbDisconnect(con))
+      result <- db_get_result(con, filename)
+      if (!is.null(result)) return(result)
+    }
+    return(list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE))
+  }
+
+  # If filename is a full path, use it directly
+  if (file.exists(filename)) {
+    return(safe_readRDS(filename))
+  }
+
+  # Extract basename for database lookup
+  base_filename <- basename(filename)
+
+  # Try to find the file in the directory structure
+  file_path <- list.files(outdir, pattern = paste0("^", base_filename, "$"),
+                         full.names = TRUE, recursive = TRUE)
+  if (length(file_path) > 0 && file.exists(file_path[1])) {
+    return(safe_readRDS(file_path[1]))
+  }
+
+  # If not found, try the consolidated database
+  db_path <- get_db_path(outdir)
+  if (file.exists(db_path)) {
+    con <- db_connect(outdir)
+    on.exit(DBI::dbDisconnect(con))
+
+    result <- db_get_result(con, base_filename)
+    if (!is.null(result)) return(result)
+  }
+
+  # If still not found, return error structure
+  list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
+}

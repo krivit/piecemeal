@@ -63,7 +63,24 @@ Piecemeal <- R6Class("Piecemeal",
     .split = c(1L, 1L),
     .error = "auto",
     .toclean = FALSE,
-    .done = function() list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE),
+    .done = function() {
+      # Get individual .rds files (excluding consolidated.db)
+      files <- list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE)
+      files <- files[!grepl("consolidated\\.db", files)]
+
+      # Get files from consolidated database
+      db_path <- get_db_path(private$.outdir)
+      if (file.exists(db_path)) {
+        con <- db_connect(private$.outdir)
+        on.exit(DBI::dbDisconnect(con))
+        db_files <- db_list_filenames(con)
+        # Return full paths for consistency (use a virtual path prefix)
+        db_files <- file.path(private$.outdir, ".consolidated", db_files)
+        files <- c(files, db_files)
+      }
+
+      files
+    },
     .doing = function() {
       files <- list.files(private$.outdir, ".*\\.rds.lock$",
                           full.names = TRUE, recursive = TRUE)
@@ -274,10 +291,10 @@ Piecemeal <- R6Class("Piecemeal",
       i <- seq(1, length(done), length.out = n) |> round()
       map(done[i],
           if(identical(trt_tf, identity) && identical(out_tf, identity))
-            function(fn) c(safe_readRDS(fn, verbose = TRUE), rds = fn)
+            function(fn) c(read_result(private$.outdir, fn), rds = fn)
           else
             function(fn) {
-              o <- safe_readRDS(fn, verbose = TRUE)
+              o <- read_result(private$.outdir, fn)
               o$treatment <- trt_tf(o$treatment)
               if (o$OK) o$output <- out_tf(o$output)
               c(o, rds = fn)
@@ -347,10 +364,20 @@ Piecemeal <- R6Class("Piecemeal",
     erred = function() {
       private$.done() |>
         map(function(fn) {
-          o <- safe_readRDS(fn)
+          o <- read_result(private$.outdir, fn)
           if(o$OK) NULL else o
         }) |>
         compact()
+    },
+
+    #' @description Consolidate successful run result files into a SQLite database.
+    #' @param max_files Maximum number of files to consolidate in one call (default: 1000).
+    #' @details This method consolidates individual RDS result files into a single SQLite database to reduce inode usage. Only successful runs (where `OK = TRUE`) are consolidated. A file lock ensures that only one process can consolidate at a time. The consolidated files are deleted after being stored in the database. Results can be read transparently from either individual files or the consolidated database.
+    #' @return Invisibly, the number of files consolidated.
+    consolidate = function(max_files = 1000) {
+      count <- consolidate_results(private$.outdir, max_files)
+      message(sprintf("%d files consolidated.", count))
+      invisible(count)
     },
 
     #' @description Set miscellaneous options.
