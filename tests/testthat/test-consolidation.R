@@ -156,3 +156,51 @@ test_that("Consolidation processes all files at once", {
 
   unlink(outdir, recursive = TRUE)
 })
+
+test_that("Consolidation removes empty directories", {
+  outdir <- tempfile("piecemeal_consolidate_dirs_")
+  
+  # Create a simulation with subdirectories by using the subdir parameter
+  sim <- piecemeal::init(outdir)
+  
+  # Manually create subdirectories and files to test directory cleanup
+  subdir1 <- file.path(outdir, "subdir1")
+  subdir2 <- file.path(outdir, "subdir2")
+  nested_dir <- file.path(subdir1, "nested")
+  
+  dir.create(subdir1, recursive = TRUE)
+  dir.create(subdir2, recursive = TRUE)
+  dir.create(nested_dir, recursive = TRUE)
+  
+  # Create some result files in subdirectories
+  # We need to create valid result files
+  result1 <- list(treatment = list(x = 1), seed = 1, output = list(result = 1), OK = TRUE)
+  result2 <- list(treatment = list(x = 2), seed = 2, output = list(result = 2), OK = TRUE)
+  result3 <- list(treatment = list(x = 3), seed = 3, output = list(result = 3), OK = TRUE)
+  
+  saveRDS(result1, file.path(subdir1, "result1.rds"))
+  saveRDS(result2, file.path(nested_dir, "result2.rds"))
+  saveRDS(result3, file.path(subdir2, "result3.rds"))
+  
+  # Verify directories exist before consolidation
+  expect_true(dir.exists(subdir1))
+  expect_true(dir.exists(subdir2))
+  expect_true(dir.exists(nested_dir))
+  
+  # Consolidate
+  count <- sim$consolidate()
+  expect_equal(count, 3)
+  
+  # Check that empty subdirectories were removed
+  expect_false(dir.exists(subdir1), info = "subdir1 should be removed after consolidation")
+  expect_false(dir.exists(subdir2), info = "subdir2 should be removed after consolidation")
+  expect_false(dir.exists(nested_dir), info = "nested directory should be removed after consolidation")
+  
+  # Verify the outdir still exists
+  expect_true(dir.exists(outdir))
+  
+  # Verify consolidated.db exists
+  expect_true(file.exists(file.path(outdir, "consolidated.db")))
+  
+  unlink(outdir, recursive = TRUE)
+})
