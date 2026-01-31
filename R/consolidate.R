@@ -101,11 +101,10 @@ db_has_file <- function(outdir, filename) {
 
 #' Consolidate individual RDS files into the SQLite database
 #' @param outdir The output directory
-#' @param max_files Maximum number of files to consolidate in one call
 #' @return Number of files consolidated
 #' @keywords internal
 #' @noRd
-consolidate_results <- function(outdir, max_files = 1000) {
+consolidate_results <- function(outdir) {
   # Use a lock file to ensure only one process consolidates at a time
   lock_path <- file.path(outdir, ".consolidate.lock")
   dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
@@ -130,8 +129,8 @@ consolidate_results <- function(outdir, max_files = 1000) {
 
   if (length(all_files) == 0) return(0)
 
-  # Read up to max_files and consolidate them
-  files_to_consolidate <- head(all_files, max_files)
+  # Consolidate all available files
+  files_to_consolidate <- all_files
 
   con <- db_connect(outdir)
   on.exit(DBI::dbDisconnect(con), add = TRUE)
@@ -140,7 +139,7 @@ consolidate_results <- function(outdir, max_files = 1000) {
   # Note: Future optimization could batch multiple inserts in a single transaction
   # for improved performance when consolidating many files
   for (file_path in files_to_consolidate) {
-    # Read the RDS file
+    # Read the RDS file to check if it's a successful run
     result <- tryCatch(
       readRDS(file_path),
       error = function(e) NULL
@@ -148,8 +147,8 @@ consolidate_results <- function(outdir, max_files = 1000) {
 
     # Only consolidate if it's a successful run
     if (!is.null(result) && isTRUE(result$OK)) {
-      # Serialize to raw bytes
-      rds_data <- serialize(result, NULL)
+      # Read raw file contents directly
+      rds_data <- readBin(file_path, "raw", n = file.info(file_path)$size)
 
       # Store in database
       filename <- basename(file_path)

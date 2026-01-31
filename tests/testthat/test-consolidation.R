@@ -17,7 +17,7 @@ test_that("Consolidation stores and retrieves results correctly", {
   expect_equal(initial_count, 8) # 2x2x2
 
   # Consolidate the results
-  count <- sim$consolidate(max_files = 100)
+  count <- sim$consolidate()
   expect_true(count > 0)
 
   # Check that files were removed
@@ -62,7 +62,7 @@ test_that("Consolidation only consolidates successful runs", {
   expect_equal(before_count, 3) # 3 results (2 success, 1 error)
 
   # Consolidate
-  count <- sim$consolidate(max_files = 100)
+  count <- sim$consolidate()
   expect_equal(count, 2) # Only 2 successful runs consolidated
 
   # Check that error file remains
@@ -91,18 +91,18 @@ test_that("Consolidation can be called multiple times safely", {
   sim$run(shuffle = FALSE)
 
   # Consolidate all files
-  count <- sim$consolidate(max_files = 100)
+  count <- sim$consolidate()
   expect_true(count > 0)
 
   # Try to consolidate again (should return 0 since no files left)
-  count2 <- sim$consolidate(max_files = 100)
+  count2 <- sim$consolidate()
   expect_equal(count2, 0)
 
   unlink(outdir, recursive = TRUE)
 })
 
-test_that("max_files parameter limits consolidation", {
-  outdir <- tempfile("piecemeal_consolidate_max_")
+test_that("Consolidation processes all files at once", {
+  outdir <- tempfile("piecemeal_consolidate_all_")
   sim <- piecemeal::init(outdir)
   sim$factorial(a = 1:10)$nrep(1)
   sim$worker(function(a) list(result = a))
@@ -110,18 +110,9 @@ test_that("max_files parameter limits consolidation", {
   # Run the simulation
   sim$run(shuffle = FALSE)
 
-  # Consolidate only 5 files
-  count <- sim$consolidate(max_files = 5)
-  expect_equal(count, 5)
-
-  # Check that 5 files remain
-  remaining_files <- list.files(outdir, pattern = "\\.rds$", recursive = TRUE)
-  remaining_files <- remaining_files[!grepl("consolidated\\.db", remaining_files)]
-  expect_equal(length(remaining_files), 5)
-
-  # Consolidate the rest
-  count2 <- sim$consolidate(max_files = 100)
-  expect_equal(count2, 5)
+  # Consolidate all files
+  count <- sim$consolidate()
+  expect_equal(count, 10)
 
   # Check that all files are consolidated
   final_files <- list.files(outdir, pattern = "\\.rds$", recursive = TRUE)

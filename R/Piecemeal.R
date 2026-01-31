@@ -371,11 +371,10 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description Consolidate successful run result files into a SQLite database.
-    #' @param max_files Maximum number of files to consolidate in one call (default: 1000).
-    #' @details This method consolidates individual RDS result files into a single SQLite database to reduce inode usage. Only successful runs (where `OK = TRUE`) are consolidated. A file lock ensures that only one process can consolidate at a time. The consolidated files are deleted after being stored in the database. Results can be read transparently from either individual files or the consolidated database.
+    #' @details This method consolidates individual RDS result files into a single SQLite database to reduce inode usage. All successful runs (where `OK = TRUE`) are consolidated. A file lock ensures that only one process can consolidate at a time. The consolidated files are deleted after being stored in the database. Results can be read transparently from either individual files or the consolidated database.
     #' @return Invisibly, the number of files consolidated.
-    consolidate = function(max_files = 1000) {
-      count <- consolidate_results(private$.outdir, max_files)
+    consolidate = function() {
+      count <- consolidate_results(private$.outdir)
       if (count > 0) {
         message(sprintf("Consolidation complete: %d files consolidated.", count))
       }
