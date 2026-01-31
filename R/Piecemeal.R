@@ -621,11 +621,14 @@ is_locked <- function(path) {
   FALSE
 }
 
+# Empty result structure for missing/corrupted files
+empty_result <- list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
+
 safe_readRDS <- function(file, ..., verbose = FALSE) {
   tryCatch(readRDS(file, ...),
            error = function(e) {
              if(verbose) message("Run file ", sQuote(file), " is corrupted. This should never happen.")
-             list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
+             empty_result
            })
 }
 

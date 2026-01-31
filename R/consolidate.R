@@ -4,9 +4,6 @@
 #' @noRd
 NULL
 
-# Empty result structure for missing/corrupt files
-empty_result <- list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
-
 #' Connect to the consolidated database
 #' @param outdir The output directory
 #' @param create If TRUE (default), creates the database and table if they don't exist.
@@ -53,7 +50,7 @@ db_store_result <- function(con, filename, rds_data) {
 #' Retrieve a result from the consolidated database
 #' @param con Database connection or outdir string. If a string, opens the database from that directory.
 #' @param filename The filename (basename) of the result
-#' @return The deserialized result list, or NULL if not found
+#' @return The deserialized result list, or `empty_result` if not found
 #' @keywords internal
 #' @noRd
 db_get_result <- function(con, filename) {
@@ -61,7 +58,7 @@ db_get_result <- function(con, filename) {
   if (is.character(con)) {
     outdir <- con
     con <- db_connect(outdir, create = FALSE)
-    if (is.null(con)) return(NULL)
+    if (is.null(con)) return(empty_result)
     on.exit(DBI::dbDisconnect(con), add = TRUE)
   }
   
@@ -69,7 +66,7 @@ db_get_result <- function(con, filename) {
     SELECT data FROM results WHERE filename = ?
   ", params = list(filename))
 
-  if (nrow(result) == 0) return(NULL)
+  if (nrow(result) == 0) return(empty_result)
 
   # Since we store raw RDS file contents which may be compressed,
   # we use gzcon() to wrap the raw connection for decompression
@@ -148,27 +145,10 @@ consolidate_results <- function(outdir) {
 #' @keywords internal
 #' @noRd
 read_result <- function(outdir, filename) {
-  # Handle .consolidated virtual paths
-  if (grepl(".consolidated", filename, fixed = TRUE)) {
-    filename <- basename(filename)
-    # Read directly from database
-    result <- db_get_result(outdir, filename)
-    if (!is.null(result)) return(result)
-    return(empty_result)
-  }
-
-  # If filename is a full path, use it directly
-  if (file.exists(filename)) {
-    return(safe_readRDS(filename))
-  }
-
-  # Extract basename for database lookup
-  base_filename <- basename(filename)
-
-  # If not found, try the consolidated database
-  result <- db_get_result(outdir, base_filename)
-  if (!is.null(result)) return(result)
-
-  # If still not found, return error structure
-  empty_result
+  if (grepl(".consolidated", filename, fixed = TRUE)) # If a .consolidated path,
+    db_get_result(outdir, basename(filename)) # read directly from database.
+  else if (file.exists(filename)) # If filename is a full path,
+    safe_readRDS(filename) # use it directly.
+  else  # If not found,
+    db_get_result(outdir, basename(filename)) # try the database.
 }
