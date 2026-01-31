@@ -1,12 +1,7 @@
-#' SQLite consolidation functions for piecemeal
-#'
-#' These functions handle consolidation of individual RDS result files
-#' into a SQLite database to reduce inode usage.
-#'
-#' @name consolidate-internals
-#' @keywords internal
 #' @importFrom DBI dbConnect dbDisconnect dbWriteTable dbReadTable dbExecute dbGetQuery dbExistsTable
 #' @importFrom RSQLite SQLite
+#' @keywords internal
+#' @noRd
 NULL
 
 # Helper to create empty result structure for missing/corrupt files
