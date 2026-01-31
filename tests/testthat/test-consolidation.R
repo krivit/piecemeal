@@ -81,7 +81,7 @@ test_that("Consolidation only consolidates successful runs", {
   unlink(outdir, recursive = TRUE)
 })
 
-test_that("Consolidation works correctly", {
+test_that("Consolidation can be called multiple times safely", {
   outdir <- tempfile("piecemeal_consolidate_lock_")
   sim <- piecemeal::init(outdir)
   sim$factorial(a = 1:5)$nrep(1)

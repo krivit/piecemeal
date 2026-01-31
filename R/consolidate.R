@@ -9,6 +9,11 @@
 #' @importFrom RSQLite SQLite
 NULL
 
+# Helper to create empty result structure for missing/corrupt files
+empty_result <- function() {
+  list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
+}
+
 #' Get the path to the consolidated database file
 #' @param outdir The output directory
 #' @return Path to the consolidated.db file
@@ -130,6 +135,8 @@ consolidate_results <- function(outdir, max_files = 1000) {
   on.exit(DBI::dbDisconnect(con), add = TRUE)
 
   count <- 0
+  # Note: Future optimization could batch multiple inserts in a single transaction
+  # for improved performance when consolidating many files
   for (file_path in files_to_consolidate) {
     # Read the RDS file
     result <- tryCatch(
@@ -172,7 +179,7 @@ read_result <- function(outdir, filename) {
       result <- db_get_result(con, filename)
       if (!is.null(result)) return(result)
     }
-    return(list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE))
+    return(empty_result())
   }
 
   # If filename is a full path, use it directly
@@ -201,5 +208,5 @@ read_result <- function(outdir, filename) {
   }
 
   # If still not found, return error structure
-  list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
+  empty_result()
 }

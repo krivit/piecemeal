@@ -376,7 +376,9 @@ Piecemeal <- R6Class("Piecemeal",
     #' @return Invisibly, the number of files consolidated.
     consolidate = function(max_files = 1000) {
       count <- consolidate_results(private$.outdir, max_files)
-      message(sprintf("%d files consolidated.", count))
+      if (count > 0) {
+        message(sprintf("Consolidation complete: %d files consolidated.", count))
+      }
       invisible(count)
     },
 
@@ -630,12 +632,9 @@ safe_readRDS <- function(file, ..., verbose = FALSE) {
            })
 }
 
-# Define %||% operator (infix OR for NULL values)
-`%||%` <- function(x, y) if (is.null(x)) y else x
-
 run_config <- function(config, error, env = NULL) {
-  worker <- get(".worker", env %||% .GlobalEnv)
-  outdir <- get(".outdir", env %||% .GlobalEnv)
+  worker <- get(".worker", if (is.null(env)) .GlobalEnv else env)
+  outdir <- get(".outdir", if (is.null(env)) .GlobalEnv else env)
 
   fn <- config$fn
   subdirs <- config$subdirs
@@ -662,8 +661,8 @@ run_config <- function(config, error, env = NULL) {
     treatment$.seed <- seed
 
   set.seed(seed)
-  out <- if (error == "stop") do.call(worker, treatment, envir = env %||% .GlobalEnv)
-         else try(do.call(worker, treatment, envir = env %||% .GlobalEnv), silent = TRUE)
+  out <- if (error == "stop") do.call(worker, treatment, envir = if (is.null(env)) .GlobalEnv else env)
+         else try(do.call(worker, treatment, envir = if (is.null(env)) .GlobalEnv else env), silent = TRUE)
   if(inherits(out, "try-error")) {
     if(error == "skip") return(paste(fn, out, sep = "\n"))
     OK <- FALSE
