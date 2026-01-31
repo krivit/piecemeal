@@ -435,7 +435,7 @@ Piecemeal <- R6Class("Piecemeal",
 
       o <- table(Result)
       attr(o, "outdir") <- private$.outdir
-      if ("Done" %in% o) attr(o, "eta") <- self$eta(...)
+      if ("Done" %in% names(o)) attr(o, "eta") <- self$eta(...)
       class(o) <- c("Piecemeal_status", class(o))
       o
     },
