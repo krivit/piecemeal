@@ -7,15 +7,6 @@ NULL
 # Empty result structure for missing/corrupt files
 empty_result <- list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
 
-#' Get the path to the consolidated database file
-#' @param outdir The output directory
-#' @return Path to the consolidated.db file
-#' @keywords internal
-#' @noRd
-get_db_path <- function(outdir) {
-  file.path(outdir, "consolidated.db")
-}
-
 #' Connect to the consolidated database
 #' @param outdir The output directory
 #' @param create If TRUE (default), creates the database and table if they don't exist.
@@ -24,7 +15,7 @@ get_db_path <- function(outdir) {
 #' @keywords internal
 #' @noRd
 db_connect <- function(outdir, create = TRUE) {
-  db_path <- get_db_path(outdir)
+  db_path <- file.path(outdir, "consolidated.db")
   
   # If create is FALSE and database doesn't exist, return NULL
   if (!create && !file.exists(db_path)) {
