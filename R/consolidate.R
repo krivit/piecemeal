@@ -66,7 +66,9 @@ db_get_result <- function(con, filename) {
 
   if (nrow(result) == 0) return(NULL)
 
-  unserialize(result$data[[1]])
+  # Since we store raw RDS file contents (which may be compressed),
+  # we need to use readRDS() on the raw bytes via a connection
+  readRDS(rawConnection(result$data[[1]]))
 }
 
 #' List all filenames in the consolidated database
