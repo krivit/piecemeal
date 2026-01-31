@@ -67,15 +67,10 @@ db_store_result <- function(con, filename, rds_data) {
 #' @noRd
 db_get_result <- function(con, filename) {
   # If con is a string, treat it as outdir and open the database
-  close_on_exit <- FALSE
   if (is.character(con)) {
     outdir <- con
     con <- db_connect(outdir, create = FALSE)
     if (is.null(con)) return(NULL)
-    close_on_exit <- TRUE
-  }
-  
-  if (close_on_exit) {
     on.exit(DBI::dbDisconnect(con), add = TRUE)
   }
   
