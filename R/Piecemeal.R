@@ -45,7 +45,7 @@
 #' # For a more involved version of this example, see vignette("piecemeal").
 #'
 #' @import parallel
-#' @importFrom rlang hash
+#' @importFrom rlang hash `%||%`
 #' @import purrr
 #' @importFrom R6 R6Class
 #' @importFrom utils capture.output
@@ -633,8 +633,8 @@ safe_readRDS <- function(file, ..., verbose = FALSE) {
 }
 
 run_config <- function(config, error, env = NULL) {
-  worker <- get(".worker", if (is.null(env)) .GlobalEnv else env)
-  outdir <- get(".outdir", if (is.null(env)) .GlobalEnv else env)
+  worker <- get(".worker", env %||% .GlobalEnv)
+  outdir <- get(".outdir", env %||% .GlobalEnv)
 
   fn <- config$fn
   subdirs <- config$subdirs
@@ -661,8 +661,8 @@ run_config <- function(config, error, env = NULL) {
     treatment$.seed <- seed
 
   set.seed(seed)
-  out <- if (error == "stop") do.call(worker, treatment, envir = if (is.null(env)) .GlobalEnv else env)
-         else try(do.call(worker, treatment, envir = if (is.null(env)) .GlobalEnv else env), silent = TRUE)
+  out <- if (error == "stop") do.call(worker, treatment, envir = env %||% .GlobalEnv)
+         else try(do.call(worker, treatment, envir = env %||% .GlobalEnv), silent = TRUE)
   if(inherits(out, "try-error")) {
     if(error == "skip") return(paste(fn, out, sep = "\n"))
     OK <- FALSE
