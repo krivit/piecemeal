@@ -66,13 +66,13 @@ db_get_result <- function(con, filename) {
 
   if (nrow(result) == 0) return(NULL)
 
-  # Since we store raw RDS file contents, we need to read them properly.
-  # Create a temporary file and use readRDS on it to handle all RDS format details
-  temp_file <- tempfile(fileext = ".rds")
-  on.exit(unlink(temp_file), add = TRUE)
+  # Since we store raw RDS file contents which may be compressed,
+  # we use gzcon() to wrap the raw connection for decompression
+  raw_con <- rawConnection(result$data[[1]])
+  on.exit(close(raw_con), add = TRUE)
 
-  writeBin(result$data[[1]], temp_file)
-  readRDS(temp_file)
+  gz_con <- gzcon(raw_con)
+  readRDS(gz_con)
 }
 
 #' List all filenames in the consolidated database
