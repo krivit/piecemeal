@@ -1,5 +1,7 @@
 # Tests based on the vignette in vignettes/piecemeal.Rmd
 
+o <- options(cli.default_handler = function(...) {})
+
 # 1. Setup
 outdir <- file.path(tempdir(), "piecemeal_vignette_test")
 sim <- piecemeal::init(outdir)
@@ -85,3 +87,5 @@ test_that("Cleanup: reset deletes all results", {
   sim$reset(confirm = FALSE)
   expect_false(dir.exists(outdir))
 })
+
+options(o)

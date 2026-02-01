@@ -65,9 +65,12 @@ Piecemeal <- R6Class("Piecemeal",
     .toclean = FALSE,
     .done = function() {
       # Get individual .rds files
+      cli_progress_message("Finding individual runs")
       files <- list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE)
+      cli_progress_done()
 
       # Get files from consolidated database
+      cli_progress_message("Finding consolidated runs")
       con <- db_connect(private$.outdir, create = FALSE)
       if (!is.null(con)) {
         on.exit(DBI::dbDisconnect(con))
@@ -79,18 +82,21 @@ Piecemeal <- R6Class("Piecemeal",
         db_files <- file.path(private$.outdir, ".consolidated", db_files)
         files <- c(files, db_files)
       }
+      cli_progress_done()
 
       files
     },
     .doing = function() {
+      cli_progress_message("Finding running workers")
       files <- list.files(private$.outdir, ".*\\.rds.lock$",
                           full.names = TRUE, recursive = TRUE)
+      cli_progress_done()
       ## This is done because purrr::keep() doesn't (officially)
       ## support .progress= arguments. See
       ## https://github.com/tidyverse/purrr/issues/1249 .
       ##
       ## TODO: Check that this is still the case before each release.
-      files[map_lgl(files, is_locked, .progress = "Checking in-progress runs")]
+      files[map_lgl(files, is_locked, .progress = "Confirming running workers")]
     },
     .check_args = function(which = TRUE) {
       anames <- suppressWarnings(names(formals(private$.worker)))

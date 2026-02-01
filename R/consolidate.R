@@ -1,6 +1,6 @@
 #' @importFrom DBI dbConnect dbDisconnect dbExecute dbGetQuery dbExistsTable
 #' @importFrom RSQLite SQLite
-#' @importFrom cli cli_progress_along
+#' @importFrom cli cli_progress_along cli_progress_message cli_progress_done
 #' @keywords internal
 #' @noRd
 NULL
@@ -112,7 +112,9 @@ consolidate_results <- function(outdir) {
   })
 
   # Get all .rds files (not .rds.lock or .rds.tmp)
+  cli_progress_message("Finding unconsolidated runs")
   files_to_consolidate <- list.files(outdir, pattern = "\\.rds$", full.names = TRUE, recursive = TRUE)
+  cli_progress_done()
 
   if (length(files_to_consolidate) == 0) return(0)
 
@@ -184,13 +186,16 @@ get_file_mtimes <- function(outdir, files) {
   
   # Get mtimes for real files
   if (any(!is_consolidated)) {
+    cli_progress_message("Scanning individual runs")
     real_files <- files[!is_consolidated]
     real_mtimes <- file.info(real_files, extra_cols = FALSE)$mtime
     mtimes[!is_consolidated] <- as.numeric(real_mtimes)
+    cli_progress_done()
   }
   
   # Get mtimes for consolidated files
   if (any(is_consolidated)) {
+    cli_progress_message("Scanning consolidated runs")
     con <- db_connect(outdir, create = FALSE)
     if (!is.null(con)) {
       on.exit(DBI::dbDisconnect(con), add = TRUE)
@@ -220,6 +225,7 @@ get_file_mtimes <- function(outdir, files) {
       # Clean up temporary table
       DBI::dbExecute(con, "DROP TABLE requested_files")
     }
+    cli_progress_done()
   }
   
   # Convert to POSIXct for compatibility with existing code
