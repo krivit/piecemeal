@@ -120,7 +120,6 @@ consolidate_results <- function(outdir) {
   on.exit(DBI::dbDisconnect(con), add = TRUE)
 
   count <- 0
-  dirs_to_check <- character()
   # Note: Future optimization could batch multiple inserts in a single transaction
   # for improved performance when consolidating many files
   
@@ -142,26 +141,12 @@ consolidate_results <- function(outdir) {
       unlink(file_path)
       count <- count + 1
       
-      # Track the directory for potential removal and any ancestors
-      dir_path <- file_path
-      while ((dir_path <- dirname(dir_path)) != outdir)
-        dirs_to_check <- c(dirs_to_check, dir_path)
-    }
-  }
-  
-  # Remove empty directories (process from deepest to shallowest)
-  if (length(dirs_to_check) > 0) {
-    dirs_to_check <- unique(dirs_to_check)
-    # Sort by depth (deepest first) to ensure we remove nested directories first
-    dirs_to_check <- dirs_to_check[order(-nchar(dirs_to_check))]
-    
-    for (dir_path in dirs_to_check) {
-      # Only remove if directory is empty.
-      #
-      # Note: This does not work on Windows, but is the only way to do
-      # it guaranteed not to destroy data when there are multiple
-      # processes running.
-      suppressWarnings(try(file.remove(dir_path), silent = TRUE))
+      # Remove empty directories and any parents; stop as soon as a
+      # non-empty directory (resulting in file.remove() returning
+      # FALSE) or outdir is encountered.
+      dir_path <- dirname(file_path)
+      while (dir_path != outdir && suppressWarnings(file.remove(dir_path)))
+        dir_path <- dirname(dir_path)
     }
   }
 
