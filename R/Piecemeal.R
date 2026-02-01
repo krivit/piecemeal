@@ -63,16 +63,40 @@ Piecemeal <- R6Class("Piecemeal",
     .split = c(1L, 1L),
     .error = "auto",
     .toclean = FALSE,
-    .done = function() list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE),
+    .done = function() {
+      # Get individual .rds files
+      cli_progress_message("Finding individual runs")
+      files <- list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE)
+      cli_progress_done()
+
+      # Get files from consolidated database
+      cli_progress_message("Finding consolidated runs")
+      con <- db_connect(private$.outdir, create = FALSE)
+      if (!is.null(con)) {
+        on.exit(DBI::dbDisconnect(con))
+        # Interrupted consolidation may result in an rds file inserted
+        # into the database but not deleted, so make sure it's only
+        # listed once.
+        db_files <- db_list_filenames(con) |> setdiff(basename(files))
+        # Return full paths for consistency (use a virtual path prefix)
+        db_files <- file.path(private$.outdir, ".consolidated", db_files)
+        files <- c(files, db_files)
+      }
+      cli_progress_done()
+
+      files
+    },
     .doing = function() {
+      cli_progress_message("Finding running workers")
       files <- list.files(private$.outdir, ".*\\.rds.lock$",
                           full.names = TRUE, recursive = TRUE)
+      cli_progress_done()
       ## This is done because purrr::keep() doesn't (officially)
       ## support .progress= arguments. See
       ## https://github.com/tidyverse/purrr/issues/1249 .
       ##
       ## TODO: Check that this is still the case before each release.
-      files[map_lgl(files, is_locked, .progress = "Checking in-progress runs")]
+      files[map_lgl(files, is_locked, .progress = "Confirming running workers")]
     },
     .check_args = function(which = TRUE) {
       anames <- suppressWarnings(names(formals(private$.worker)))
@@ -108,7 +132,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Create a new `Piecemeal` instance.
     #' @param outdir the directory to hold the partial simulation results.
     initialize = function(outdir) {
-      private$.outdir <- outdir
+      private$.outdir <- gsub("/$", "", outdir)
     },
 
     #' @description Cluster settings for the piecemeal run.
@@ -269,15 +293,16 @@ Piecemeal <- R6Class("Piecemeal",
     #' \item{`config`}{miscellaneous configuration settings such as the file name}
     #' }
     result_list = function(n = Inf, trt_tf = identity, out_tf = identity) {
+      con <- db_connect(private$.outdir, create = FALSE)
       done <- private$.done()
       n <- min(n, length(done))
       i <- seq(1, length(done), length.out = n) |> round()
       map(done[i],
           if(identical(trt_tf, identity) && identical(out_tf, identity))
-            function(fn) c(safe_readRDS(fn, verbose = TRUE), rds = fn)
+            function(fn) c(read_result(private$.outdir, fn, con), rds = fn)
           else
             function(fn) {
-              o <- safe_readRDS(fn, verbose = TRUE)
+              o <- read_result(private$.outdir, fn, con)
               o$treatment <- trt_tf(o$treatment)
               if (o$OK) o$output <- out_tf(o$output)
               c(o, rds = fn)
@@ -345,12 +370,25 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description List the configurations for which the worker function failed.
     erred = function() {
+      con <- db_connect(private$.outdir, create = FALSE)
+
       private$.done() |>
         map(function(fn) {
-          o <- safe_readRDS(fn)
+          o <- read_result(private$.outdir, fn, con)
           if(o$OK) NULL else o
         }) |>
         compact()
+    },
+
+    #' @description Consolidate successful run result files into a SQLite database.
+    #' @details This method consolidates individual RDS result files into a single database to reduce inode usage. Only successful runs (where `OK = TRUE`) are consolidated. This function is safe to run while simulations are running and to interrupt (using \kbd{CTRL-C} or analogous) and resume, but only one consolidation may be run at the same time. Consolidated and unconsolidated results can be accessed transparently.
+    #' @return Invisibly, the number of files consolidated.
+    consolidate = function() {
+      count <- consolidate_results(private$.outdir)
+      if (count > 0) {
+        message(sprintf("Consolidation complete: %d files consolidated.", count))
+      }
+      invisible(count)
     },
 
     #' @description Set miscellaneous options.
@@ -454,9 +492,7 @@ Piecemeal <- R6Class("Piecemeal",
       total <- max(1, length(private$.treatments)) * length(private$.seeds)
       left <- total - length(done)
 
-      mtimes <- done |>
-        file.info(extra_cols = FALSE) |>
-        pluck("mtime")
+      mtimes <- get_file_mtimes(private$.outdir, done)
       mtimes <- mtimes[mtimes >= max(mtimes) - window]
 
       recent <- length(mtimes) - 1
@@ -529,6 +565,7 @@ find_rate_unit <- function(hz) {
   structure(hz * switch(per, sec = 1, min = 60, hour = 60*60, day = 24*60*60), per = per, class = "rate")
 }
 
+#' @noRd
 format.rate <- function(x, ...) {
   paste(format(as.numeric(x), ...), "per", attr(x, "per"))
 }
@@ -594,11 +631,14 @@ is_locked <- function(path) {
   FALSE
 }
 
+# Empty result structure for missing/corrupted files
+empty_result <- list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
+
 safe_readRDS <- function(file, ..., verbose = FALSE) {
   tryCatch(readRDS(file, ...),
            error = function(e) {
              if(verbose) message("Run file ", sQuote(file), " is corrupted. This should never happen.")
-             list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
+             empty_result
            })
 }
 
@@ -609,13 +649,20 @@ run_config <- function(config, error, env = NULL) {
   fn <- config$fn
   subdirs <- config$subdirs
   dn <- do.call(file.path, c(list(outdir), subdirs))
-  dir.create(dn, recursive = TRUE, showWarnings = FALSE)
   fn <- file.path(dn, fn)
 
   if(file.exists(fn)) return(paste(fn, "SKIPPED", sep = "\n")) # If this treatment + seed combination has been run, move on.
 
   # Or, if it's already being run by another process, move on; otherwise, lock it.
+  #
+  # Here, the containing directory is created nonempty so that
+  # file.remove() run by consolidate_results() cannot remove it before
+  # lock() gets a chance to create a file in it. Once a lock file is
+  # in place (if it wasn't already), we can remove the placeholder
+  # subdirectory.
+  dir.create(dl <- file.path(dn, "dirlock"), recursive = TRUE, showWarnings = FALSE)
   fnlock <- filelock::lock(paste0(fn, ".lock"), timeout = 0)
+  suppressWarnings(try(unlink(dl, recursive = TRUE), silent = TRUE))
   on.exit({
     filelock::unlock(fnlock)
     unlink(paste0(fn, ".lock"))

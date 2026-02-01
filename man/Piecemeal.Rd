@@ -74,6 +74,7 @@ sim$result_df()
 \item \href{#method-Piecemeal-reset}{\code{Piecemeal$reset()}}
 \item \href{#method-Piecemeal-clean}{\code{Piecemeal$clean()}}
 \item \href{#method-Piecemeal-erred}{\code{Piecemeal$erred()}}
+\item \href{#method-Piecemeal-consolidate}{\code{Piecemeal$consolidate()}}
 \item \href{#method-Piecemeal-options}{\code{Piecemeal$options()}}
 \item \href{#method-Piecemeal-print}{\code{Piecemeal$print()}}
 \item \href{#method-Piecemeal-status}{\code{Piecemeal$status()}}
@@ -381,6 +382,23 @@ List the configurations for which the worker function failed.
 \if{html}{\out{<div class="r">}}\preformatted{Piecemeal$erred()}\if{html}{\out{</div>}}
 }
 
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-consolidate"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-consolidate}{}}}
+\subsection{Method \code{consolidate()}}{
+Consolidate successful run result files into a SQLite database.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$consolidate()}\if{html}{\out{</div>}}
+}
+
+\subsection{Details}{
+This method consolidates individual RDS result files into a single database to reduce inode usage. Only successful runs (where \code{OK = TRUE}) are consolidated. This function is safe to run while simulations are running and to interrupt (using \kbd{CTRL-C} or analogous) and resume, but only one consolidation may be run at the same time. Consolidated and unconsolidated results can be accessed transparently.
+}
+
+\subsection{Returns}{
+Invisibly, the number of files consolidated.
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-options"></a>}}
