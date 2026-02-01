@@ -2,7 +2,7 @@
 % Please edit documentation in R/Piecemeal.R
 \name{Piecemeal}
 \alias{Piecemeal}
-\title{The \code{Piecemeal} \code{\link{R6}} Class}
+\title{The \code{Piecemeal} \code{\link[R6:R6Class]{R6}} Class}
 \description{
 This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See \href{../doc/piecemeal.html}{the vignette \code{vignette("piecemeal")}} for long worked example.
 }
@@ -389,18 +389,11 @@ List the configurations for which the worker function failed.
 \subsection{Method \code{consolidate()}}{
 Consolidate successful run result files into a SQLite database.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$consolidate(max_files = 1000)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$consolidate()}\if{html}{\out{</div>}}
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{max_files}}{Maximum number of files to consolidate in one call (default: 1000).}
-}
-\if{html}{\out{</div>}}
-}
 \subsection{Details}{
-This method consolidates individual RDS result files into a single SQLite database to reduce inode usage. Only successful runs (where \code{OK = TRUE}) are consolidated. A file lock ensures that only one process can consolidate at a time. The consolidated files are deleted after being stored in the database. Results can be read transparently from either individual files or the consolidated database.
+This method consolidates individual RDS result files into a single SQLite database to reduce inode usage. All successful runs (where \code{OK = TRUE}) are consolidated. A file lock ensures that only one process can consolidate at a time. The consolidated files are deleted after being stored in the database. Results can be read transparently from either individual files or the consolidated database.
 }
 
 \subsection{Returns}{

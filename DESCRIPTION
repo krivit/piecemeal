@@ -1,14 +1,14 @@
 Package: piecemeal
 Title: Wrangle Large Simulation Studies
 Date: 2026-01-30
-Version: 0.1.0-70
+Version: 0.2.0-70
 Authors@R: person(c("Pavel", "N."), "Krivitsky", role=c("aut", "cre"), email="pavel@statnet.org", comment=c(ORCID="0000-0002-9101-3362"))
 Description: An 'R6' class to set up, run, monitor, collate, and debug large simulation studies comprising many small independent replications and treatment configurations. Parallel processing, reproducibility, fault- and error-tolerance, and ability to resume an interrupted or timed-out simulation study are built in.
 BugReports: https://github.com/krivit/piecemeal/issues
 License: GPL (>= 3)
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2.9000
+RoxygenNote: 7.3.3.9000
 Depends: R (>= 4.2.0)
 Imports: R6, filelock, rlang, purrr, RSQLite, DBI, cli
 Suggests:
