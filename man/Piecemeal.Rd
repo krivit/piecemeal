@@ -393,7 +393,7 @@ Consolidate successful run result files into a SQLite database.
 }
 
 \subsection{Details}{
-This method consolidates individual RDS result files into a single SQLite database to reduce inode usage. All successful runs (where \code{OK = TRUE}) are consolidated. A file lock ensures that only one process can consolidate at a time. The consolidated files are deleted after being stored in the database. Results can be read transparently from either individual files or the consolidated database.
+This method consolidates individual RDS result files into a single database to reduce inode usage. Only successful runs (where \code{OK = TRUE}) are consolidated. This function is safe to run while simulations are running and to interrupt (using \kbd{CTRL-C} or analogous) and resume, but only one consolidation may be run at the same time. Consolidated and unconsolidated results can be accessed transparently.
 }
 
 \subsection{Returns}{

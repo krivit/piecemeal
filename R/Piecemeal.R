@@ -71,7 +71,10 @@ Piecemeal <- R6Class("Piecemeal",
       con <- db_connect(private$.outdir, create = FALSE)
       if (!is.null(con)) {
         on.exit(DBI::dbDisconnect(con))
-        db_files <- db_list_filenames(con)
+        # Interrupted consolidation may result in an rds file inserted
+        # into the database but not deleted, so make sure it's only
+        # listed once.
+        db_files <- db_list_filenames(con) |> setdiff(basename(files))
         # Return full paths for consistency (use a virtual path prefix)
         db_files <- file.path(private$.outdir, ".consolidated", db_files)
         files <- c(files, db_files)
@@ -369,7 +372,7 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description Consolidate successful run result files into a SQLite database.
-    #' @details This method consolidates individual RDS result files into a single SQLite database to reduce inode usage. All successful runs (where `OK = TRUE`) are consolidated. A file lock ensures that only one process can consolidate at a time. The consolidated files are deleted after being stored in the database. Results can be read transparently from either individual files or the consolidated database.
+    #' @details This method consolidates individual RDS result files into a single database to reduce inode usage. Only successful runs (where `OK = TRUE`) are consolidated. This function is safe to run while simulations are running and to interrupt (using \kbd{CTRL-C} or analogous) and resume, but only one consolidation may be run at the same time. Consolidated and unconsolidated results can be accessed transparently.
     #' @return Invisibly, the number of files consolidated.
     consolidate = function() {
       count <- consolidate_results(private$.outdir)
