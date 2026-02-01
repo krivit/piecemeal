@@ -45,7 +45,7 @@
 #' # For a more involved version of this example, see vignette("piecemeal").
 #'
 #' @import parallel
-#' @importFrom rlang hash `%||%`
+#' @importFrom rlang hash
 #' @import purrr
 #' @importFrom R6 R6Class
 #' @importFrom utils capture.output
