@@ -156,16 +156,17 @@ consolidate_results <- function(outdir) {
 #' Read a result from either individual file or consolidated database
 #' @param outdir The output directory
 #' @param filename The filename (can be full path or basename)
+#' @param con an optional database connection that can be reused
 #' @return The result list
 #' @keywords internal
 #' @noRd
-read_result <- function(outdir, filename) {
+read_result <- function(outdir, filename, con = NULL) {
   if (grepl(".consolidated", filename, fixed = TRUE)) # If a .consolidated path,
-    db_get_result(outdir, basename(filename)) # read directly from database.
+    db_get_result(con %||% outdir, basename(filename)) # read directly from database.
   else if (file.exists(filename)) # If filename is a full path,
     safe_readRDS(filename) # use it directly.
   else  # If not found,
-    db_get_result(outdir, basename(filename)) # try the database.
+    db_get_result(con %||% outdir, basename(filename)) # try the database.
 }
 
 #' Get modification times for files (including consolidated ones)

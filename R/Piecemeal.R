@@ -287,15 +287,16 @@ Piecemeal <- R6Class("Piecemeal",
     #' \item{`config`}{miscellaneous configuration settings such as the file name}
     #' }
     result_list = function(n = Inf, trt_tf = identity, out_tf = identity) {
+      con <- db_connect(private$.outdir, create = FALSE)
       done <- private$.done()
       n <- min(n, length(done))
       i <- seq(1, length(done), length.out = n) |> round()
       map(done[i],
           if(identical(trt_tf, identity) && identical(out_tf, identity))
-            function(fn) c(read_result(private$.outdir, fn), rds = fn)
+            function(fn) c(read_result(private$.outdir, fn, con), rds = fn)
           else
             function(fn) {
-              o <- read_result(private$.outdir, fn)
+              o <- read_result(private$.outdir, fn, con)
               o$treatment <- trt_tf(o$treatment)
               if (o$OK) o$output <- out_tf(o$output)
               c(o, rds = fn)
@@ -363,9 +364,11 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description List the configurations for which the worker function failed.
     erred = function() {
+      con <- db_connect(private$.outdir, create = FALSE)
+
       private$.done() |>
         map(function(fn) {
-          o <- read_result(private$.outdir, fn)
+          o <- read_result(private$.outdir, fn, con)
           if(o$OK) NULL else o
         }) |>
         compact()
