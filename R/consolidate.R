@@ -198,16 +198,33 @@ get_file_mtimes <- function(outdir, files) {
       consolidated_files <- files[is_consolidated]
       basenames <- basename(consolidated_files)
       
-      # Query mtimes from database
-      for (i in seq_along(basenames)) {
-        result <- DBI::dbGetQuery(con, "
-          SELECT mtime FROM results WHERE filename = ?
-        ", params = list(basenames[i]))
-        
-        if (nrow(result) > 0) {
-          mtimes[is_consolidated][i] <- result$mtime[1]
+      # Create temporary table with requested filenames for efficient JOIN
+      DBI::dbExecute(con, "CREATE TEMP TABLE requested_files (filename TEXT)")
+      
+      # Insert all requested basenames in batch
+      DBI::dbExecute(con, "
+        INSERT INTO requested_files (filename) VALUES (?)
+      ", params = list(basenames))
+      
+      # Query mtimes using JOIN for optimal performance
+      result <- DBI::dbGetQuery(con, "
+        SELECT r.filename, r.mtime
+        FROM requested_files rf
+        INNER JOIN results r ON rf.filename = r.filename
+      ")
+      
+      # Match results back to original positions
+      if (nrow(result) > 0) {
+        for (i in seq_len(nrow(result))) {
+          idx <- which(basenames == result$filename[i])
+          if (length(idx) > 0) {
+            mtimes[is_consolidated][idx] <- result$mtime[i]
+          }
         }
       }
+      
+      # Clean up temporary table
+      DBI::dbExecute(con, "DROP TABLE requested_files")
     }
   }
   
