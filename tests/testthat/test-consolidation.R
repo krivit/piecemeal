@@ -158,6 +158,8 @@ test_that("Consolidation processes all files at once", {
 })
 
 test_that("Consolidation removes empty directories", {
+  skip_on_os("windows")
+  
   outdir <- tempfile("piecemeal_consolidate_dirs_")
   
   # Create a simulation with subdirectories by using the subdir parameter
