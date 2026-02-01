@@ -198,29 +198,26 @@ get_file_mtimes <- function(outdir, files) {
       consolidated_files <- files[is_consolidated]
       basenames <- basename(consolidated_files)
       
-      # Create temporary table with requested filenames for efficient JOIN
-      DBI::dbExecute(con, "CREATE TEMP TABLE requested_files (filename TEXT)")
+      # Create temporary table with index and filename for efficient JOIN
+      DBI::dbExecute(con, "CREATE TEMP TABLE requested_files (idx INTEGER, filename TEXT)")
       
-      # Insert all requested basenames in batch
+      # Insert all requested basenames with their indices in batch
       DBI::dbExecute(con, "
-        INSERT INTO requested_files (filename) VALUES (?)
-      ", params = list(basenames))
+        INSERT INTO requested_files (idx, filename) VALUES (?, ?)
+      ", params = list(seq_along(basenames), basenames))
       
-      # Query mtimes using JOIN for optimal performance
+      # Query mtimes using JOIN, ordered by index for optimal performance
       result <- DBI::dbGetQuery(con, "
-        SELECT r.filename, r.mtime
+        SELECT rf.idx, r.mtime
         FROM requested_files rf
         INNER JOIN results r ON rf.filename = r.filename
+        ORDER BY rf.idx
       ")
       
-      # Match results back to original positions
+      # Assign results directly using the index
       if (nrow(result) > 0) {
-        for (i in seq_len(nrow(result))) {
-          idx <- which(basenames == result$filename[i])
-          if (length(idx) > 0) {
-            mtimes[is_consolidated][idx] <- result$mtime[i]
-          }
-        }
+        consolidated_indices <- which(is_consolidated)
+        mtimes[consolidated_indices[result$idx]] <- result$mtime
       }
       
       # Clean up temporary table
