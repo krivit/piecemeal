@@ -461,8 +461,10 @@ Piecemeal <- R6Class("Piecemeal",
       done <- private$.done()
       
       # Separate consolidated from individual files
-      # Consolidated files are in the database and are guaranteed to be successful
-      is_consolidated <- grepl(".consolidated", done, fixed = TRUE)
+      # Consolidated files are in the database and have .consolidated directory in their path
+      # Use .Platform$file.sep to handle both Unix (/) and Windows (\) separators
+      consolidated_pattern <- paste0(.Platform$file.sep, ".consolidated", .Platform$file.sep)
+      is_consolidated <- grepl(consolidated_pattern, done, fixed = TRUE)
       
       # For consolidated files, we know they're successful (only successful runs get consolidated)
       n_consolidated <- sum(is_consolidated)
