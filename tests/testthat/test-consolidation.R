@@ -319,3 +319,49 @@ test_that("status() counts only consolidated successful runs", {
   unlink(outdir, recursive = TRUE)
 })
 
+test_that("run_config() skips runs already in consolidated database", {
+  outdir <- tempfile("piecemeal_skip_consolidated_")
+  sim <- piecemeal::init(outdir)
+  sim$factorial(a = 1:3)$nrep(2)
+  sim$worker(function(a) list(result = a * 10))
+
+  # Run the simulation
+  sim$run(shuffle = FALSE)
+
+  # Verify all runs completed
+  initial_results <- sim$result_list()
+  expect_equal(length(initial_results), 6) # 3 treatments × 2 reps
+
+  # Consolidate all results
+  count <- sim$consolidate()
+  expect_equal(count, 6)
+
+  # Verify all individual files were removed
+  remaining_files <- list.files(outdir, pattern = "\\.rds$", recursive = TRUE)
+  expect_equal(length(remaining_files), 0)
+
+  # Now try to run again - all runs should be skipped
+  # because they're in the consolidated database
+  statuses <- sim$run(shuffle = FALSE)
+
+  # Check that all runs were skipped
+  # statuses is a character vector with messages like "path\nSKIPPED"
+  # Split by \n and check the second part
+  status_parts <- strsplit(statuses, "\n", fixed = TRUE)
+  status_codes <- sapply(status_parts, function(x) x[2])
+  expect_true(all(status_codes == "SKIPPED"))
+
+  # Verify results are still correct and unchanged
+  final_results <- sim$result_list()
+  expect_equal(length(final_results), 6)
+
+  # Verify the results are identical to before
+  for (i in seq_along(initial_results)) {
+    expect_equal(initial_results[[i]]$seed, final_results[[i]]$seed)
+    expect_equal(initial_results[[i]]$treatment, final_results[[i]]$treatment)
+    expect_equal(initial_results[[i]]$output, final_results[[i]]$output)
+  }
+
+  unlink(outdir, recursive = TRUE)
+})
+

@@ -69,8 +69,7 @@ db_store_result <- function(con, filename, rds_data, mtime) {
 db_get_result <- function(con, filename) {
   # If con is a string, treat it as outdir and open the database
   if (is.character(con)) {
-    outdir <- con
-    con <- db_connect(outdir)
+    con <- db_connect(con)
     if (is.null(con)) return(empty_result)
     on.exit(DBI::dbDisconnect(con), add = TRUE)
   }
@@ -98,6 +97,29 @@ db_get_result <- function(con, filename) {
 db_list_filenames <- function(con) {
   result <- DBI::dbGetQuery(con, "SELECT filename FROM results")
   result$filename
+}
+
+#' Check if a filename exists in the consolidated database
+#' @param con The output directory (or a database connection)
+#' @param filename The filename (basename) to check
+#' @return TRUE if the filename exists in the database, FALSE otherwise (or if database doesn't exist)
+#' @keywords internal
+#' @noRd
+db_has_result <- function(con, filename) {
+  # If outdir is a connection, use it directly
+  if (is.character(con)) {
+    con <- db_connect(con)
+    if (is.null(con)) return(FALSE)
+    on.exit(DBI::dbDisconnect(con), add = TRUE)
+  }
+
+  # Check if the filename exists in the database
+  # Use EXISTS for better performance than COUNT(*)
+  result <- DBI::dbGetQuery(con, "
+    SELECT EXISTS(SELECT 1 FROM results WHERE filename = ? LIMIT 1) as exists
+  ", params = list(basename(filename)))
+
+  as.logical(result$exists[1])
 }
 
 #' Consolidate individual RDS files into the SQLite database

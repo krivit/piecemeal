@@ -672,7 +672,8 @@ run_config <- function(config, error, env = NULL) {
   dn <- do.call(file.path, c(list(outdir), subdirs))
   fn <- file.path(dn, fn)
 
-  if(file.exists(fn)) return(paste(fn, "SKIPPED", sep = "\n")) # If this treatment + seed combination has been run, move on.
+  # If this treatment + seed combination has been run, move on.
+  if (file.exists(fn) || db_has_result(outdir, fn)) return(paste(fn, "SKIPPED", sep = "\n"))
 
   # Or, if it's already being run by another process, move on; otherwise, lock it.
   #
