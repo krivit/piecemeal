@@ -71,7 +71,7 @@ Piecemeal <- R6Class("Piecemeal",
 
       # Get files from consolidated database
       cli_progress_message("Finding consolidated runs")
-      con <- db_connect(private$.outdir, create = FALSE)
+      con <- db_connect(private$.outdir)
       if (!is.null(con)) {
         on.exit(DBI::dbDisconnect(con))
         # Interrupted consolidation may result in an rds file inserted
@@ -293,7 +293,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' \item{`config`}{miscellaneous configuration settings such as the file name}
     #' }
     result_list = function(n = Inf, trt_tf = identity, out_tf = identity) {
-      con <- db_connect(private$.outdir, create = FALSE)
+      con <- db_connect(private$.outdir)
       done <- private$.done()
       n <- min(n, length(done))
       i <- seq(1, length(done), length.out = n) |> round()
@@ -370,7 +370,7 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description List the configurations for which the worker function failed.
     erred = function() {
-      con <- db_connect(private$.outdir, create = FALSE)
+      con <- db_connect(private$.outdir)
 
       private$.done() |>
         map(function(fn) {

@@ -7,30 +7,40 @@ NULL
 
 #' Connect to the consolidated database
 #' @param outdir The output directory
-#' @param create If TRUE (default), creates the database and table if they don't exist.
-#'   If FALSE and the database doesn't exist, returns NULL.
-#' @return A database connection, or NULL if create=FALSE and database doesn't exist
+#' @param mode Either "read" or "write". If "read" (default), opens the database as 
+#'   read-only and returns NULL if the database doesn't exist. If "write", creates the 
+#'   database and table if they don't exist and opens with write permissions.
+#' @return A database connection, or NULL if mode="read" and database doesn't exist
 #' @keywords internal
 #' @noRd
-db_connect <- function(outdir, create = TRUE) {
+db_connect <- function(outdir, mode = c("read", "write")) {
+  mode <- match.arg(mode)
+  
   db_path <- file.path(outdir, "consolidated.db")
   
-  # If create is FALSE and database doesn't exist, return NULL
-  if (!create && !file.exists(db_path)) {
+  # If mode is "read" and database doesn't exist, return NULL
+  if (mode == "read" && !file.exists(db_path)) {
     return(NULL)
   }
   
-  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
-
-  # Create table if it doesn't exist
-  if (!DBI::dbExistsTable(con, "results")) {
-    DBI::dbExecute(con, "
-      CREATE TABLE results (
-        filename TEXT PRIMARY KEY,
-        data BLOB NOT NULL,
-        mtime REAL NOT NULL
-      )
-    ")
+  # Open connection with appropriate flags
+  if (mode == "read") {
+    # Open read-only: SQLITE_OPEN_READONLY = 0x00000001
+    con <- DBI::dbConnect(RSQLite::SQLite(), db_path, flags = RSQLite::SQLITE_RO)
+  } else {
+    # Open read-write, create if needed (default behavior)
+    con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+    
+    # Create table if it doesn't exist (only for write mode)
+    if (!DBI::dbExistsTable(con, "results")) {
+      DBI::dbExecute(con, "
+        CREATE TABLE results (
+          filename TEXT PRIMARY KEY,
+          data BLOB NOT NULL,
+          mtime REAL NOT NULL
+        )
+      ")
+    }
   }
 
   con
@@ -60,7 +70,7 @@ db_get_result <- function(con, filename) {
   # If con is a string, treat it as outdir and open the database
   if (is.character(con)) {
     outdir <- con
-    con <- db_connect(outdir, create = FALSE)
+    con <- db_connect(outdir)
     if (is.null(con)) return(empty_result)
     on.exit(DBI::dbDisconnect(con), add = TRUE)
   }
@@ -118,7 +128,7 @@ consolidate_results <- function(outdir) {
 
   if (length(files_to_consolidate) == 0) return(0)
 
-  con <- db_connect(outdir)
+  con <- db_connect(outdir, mode = "write")
   on.exit(DBI::dbDisconnect(con), add = TRUE)
 
   count <- 0
@@ -196,7 +206,7 @@ get_file_mtimes <- function(outdir, files) {
   # Get mtimes for consolidated files
   if (any(is_consolidated)) {
     cli_progress_message("Scanning consolidated runs")
-    con <- db_connect(outdir, create = FALSE)
+    con <- db_connect(outdir)
     if (!is.null(con)) {
       on.exit(DBI::dbDisconnect(con), add = TRUE)
       
