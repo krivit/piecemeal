@@ -14,6 +14,11 @@ NULL
 #' @keywords internal
 #' @noRd
 db_connect <- function(outdir, mode = "write") {
+  # Validate mode parameter
+  if (!mode %in% c("read", "write")) {
+    stop("mode must be 'read' or 'write'")
+  }
+  
   db_path <- file.path(outdir, "consolidated.db")
   
   # If mode is "read" and database doesn't exist, return NULL
