@@ -257,20 +257,23 @@ test_that("status() works efficiently with consolidated results", {
     list(result = a + b)
   })
   
-  # Run the simulation (will have 1 error, 11 successes)
+  # Run the simulation
+  # 3 treatments × 2 b-values × 2 reps = 12 total runs
+  # Error when a==2 and b==1: 1 treatment combo × 2 reps = 2 error runs
+  # Successful runs: 12 - 2 = 10
   suppressMessages(sim$run(shuffle = FALSE))
   
   # Check status before consolidation
   status_before <- sim$status()
   expect_true("Done" %in% names(status_before))
-  expect_equal(status_before["Done"], 11)  # 11 successful runs
+  expect_equal(as.numeric(status_before["Done"]), 10)  # 10 successful runs
   
-  # There should be 1 error
+  # There should be errors
   expect_true(any(grepl("Intentional error", names(status_before))))
   
-  # Consolidate (should consolidate only the 11 successful runs)
+  # Consolidate (should consolidate only the 10 successful runs)
   count <- sim$consolidate()
-  expect_equal(count, 11)
+  expect_equal(count, 10)
   
   # Check status after consolidation
   # This tests that status() correctly counts consolidated files without reading blob contents
@@ -297,7 +300,7 @@ test_that("status() counts only consolidated successful runs", {
   
   # Status before consolidation - all should be Done
   status_before <- sim$status()
-  expect_equal(status_before["Done"], 5)
+  expect_equal(as.numeric(status_before["Done"]), 5)
   expect_equal(sum(status_before), 5)
   
   # Consolidate all
@@ -306,7 +309,7 @@ test_that("status() counts only consolidated successful runs", {
   
   # Status after consolidation - should still be all Done
   status_after <- sim$status()
-  expect_equal(status_after["Done"], 5)
+  expect_equal(as.numeric(status_after["Done"]), 5)
   expect_equal(sum(status_after), 5)
   
   # The results should be identical
