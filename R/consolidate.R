@@ -27,11 +27,11 @@ db_connect <- function(outdir, mode = c("read", "write")) {
   if (mode == "read") {
     # Open read-only: SQLITE_OPEN_READONLY = 0x00000001
     con <- DBI::dbConnect(RSQLite::SQLite(), db_path, flags = RSQLite::SQLITE_RO)
-    dbExecute(con, "PRAGMA busy_timeout = 10000;")
+    dbExecute(con, "PRAGMA busy_timeout = 3600000;")
   } else {
     # Open read-write, create if needed (default behavior)
     con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
-    dbExecute(con, "PRAGMA busy_timeout = 10000;")
+    dbExecute(con, "PRAGMA busy_timeout = 3600000;")
 
     # Create table if it doesn't exist (only for write mode)
     if (!DBI::dbExistsTable(con, "results")) {
