@@ -7,17 +7,14 @@ NULL
 
 #' Connect to the consolidated database
 #' @param outdir The output directory
-#' @param mode Either "read" or "write". If "read", opens the database as read-only
-#'   and returns NULL if the database doesn't exist. If "write", creates the database
-#'   and table if they don't exist and opens with write permissions.
+#' @param mode Either "read" or "write". If "read" (default), opens the database as 
+#'   read-only and returns NULL if the database doesn't exist. If "write", creates the 
+#'   database and table if they don't exist and opens with write permissions.
 #' @return A database connection, or NULL if mode="read" and database doesn't exist
 #' @keywords internal
 #' @noRd
-db_connect <- function(outdir, mode = "write") {
-  # Validate mode parameter
-  if (!mode %in% c("read", "write")) {
-    stop("mode must be 'read' or 'write'")
-  }
+db_connect <- function(outdir, mode = c("read", "write")) {
+  mode <- match.arg(mode)
   
   db_path <- file.path(outdir, "consolidated.db")
   
