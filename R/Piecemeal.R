@@ -457,19 +457,40 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Summarise the current status of the simulation, including the number of runs succeeded, the number of runs still to be done, the number of runs currently running, the errors encountered, and, if started, the estimated time to completion at the current rate.
     #' @param ... additional arguments, currently passed to `Piecemeal$eta()`.
     status = function(...) {
-      # We only want the output if it's an error.
-      l <- self$result_list(trt_tf = \(trt) NULL, out_tf = \(out) if(is(out, "try-error")) out else NULL)
-      Result <- map_chr(l, function(o)
-        if(o$OK) "Done"
-        else if(is.null(o$config)) "Corrupted"
-        else trimws(o$output) # the error message
-        )
+      # Get all done files
+      done <- private$.done()
+      
+      # Separate consolidated from individual files
+      # Consolidated files are in the database and have .consolidated directory in their path
+      # Use .Platform$file.sep to handle both Unix (/) and Windows (\) separators
+      consolidated_pattern <- paste0(.Platform$file.sep, ".consolidated", .Platform$file.sep)
+      is_consolidated <- grepl(consolidated_pattern, done, fixed = TRUE)
+      
+      # For consolidated files, we know they're successful (only successful runs get consolidated)
+      n_consolidated <- sum(is_consolidated)
+      
+      # For individual files, we need to check their status
+      individual_files <- done[!is_consolidated]
+      Result <- character(0)
+      
+      if (length(individual_files) > 0) {
+        # Read only individual files to check their status
+        Result <- map_chr(individual_files, function(fn) {
+          o <- safe_readRDS(fn)
+          if(o$OK) "Done"
+          else if(is.null(o$config)) "Corrupted"
+          else trimws(o$output) # the error message
+        }, .progress = "Checking individual results")
+      }
+      
+      # Add all successful consolidated runs as "Done"
+      Result <- c(Result, rep_len("Done", n_consolidated))
 
       total <- max(1, length(private$.treatments)) * length(private$.seeds)
       inprog <- length(private$.doing())
       Result <- c(Result,
                   rep_len("Running (approx.)", inprog),
-                  rep_len("ToDo", max(0, total - length(l) - inprog)))
+                  rep_len("ToDo", max(0, total - length(done) - inprog)))
 
       o <- table(Result)
       attr(o, "outdir") <- private$.outdir
