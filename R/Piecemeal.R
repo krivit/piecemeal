@@ -140,7 +140,9 @@ Piecemeal <- R6Class("Piecemeal",
     cluster = function(...) {
       spec <- list(...)
       if(length(spec) == 1L && (is.null(spec[[1]]) || is(spec[[1]], "cluster"))) private$.cl_setup <- spec[[1]]
-      else private$.cl_setup <- spec
+      else private$.cl_setup <-
+             if (hasName(spec, "setup_timeout")) spec
+             else c(spec, list(setup_timeout = 3600))
       invisible(self)
     },
 
