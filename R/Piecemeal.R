@@ -674,6 +674,9 @@ run_config <- function(config, error, env = NULL) {
 
   if(file.exists(fn)) return(paste(fn, "SKIPPED", sep = "\n")) # If this treatment + seed combination has been run, move on.
 
+  # Also check if it exists in the consolidated database
+  if(db_has_result(outdir, fn)) return(paste(fn, "SKIPPED", sep = "\n"))
+
   # Or, if it's already being run by another process, move on; otherwise, lock it.
   #
   # Here, the containing directory is created nonempty so that
