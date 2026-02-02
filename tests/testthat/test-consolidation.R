@@ -248,3 +248,71 @@ test_that("Consolidation preserves file modification times for ETA", {
   unlink(outdir, recursive = TRUE)
 })
 
+test_that("status() works efficiently with consolidated results", {
+  outdir <- tempfile("piecemeal_status_")
+  sim <- piecemeal::init(outdir)
+  sim$factorial(a = 1:3, b = 1:2)$nrep(2)
+  sim$worker(function(a, b) {
+    if (a == 2 && b == 1) stop("Intentional error")
+    list(result = a + b)
+  })
+  
+  # Run the simulation (will have 1 error, 11 successes)
+  suppressMessages(sim$run(shuffle = FALSE))
+  
+  # Check status before consolidation
+  status_before <- sim$status()
+  expect_true("Done" %in% names(status_before))
+  expect_equal(status_before["Done"], 11)  # 11 successful runs
+  
+  # There should be 1 error
+  expect_true(any(grepl("Intentional error", names(status_before))))
+  
+  # Consolidate (should consolidate only the 11 successful runs)
+  count <- sim$consolidate()
+  expect_equal(count, 11)
+  
+  # Check status after consolidation
+  # This tests that status() correctly counts consolidated files without reading blob contents
+  status_after <- sim$status()
+  expect_equal(status_before["Done"], status_after["Done"])
+  
+  # Error should still be present
+  expect_true(any(grepl("Intentional error", names(status_after))))
+  
+  # Verify counts are consistent
+  expect_equal(sum(status_before), sum(status_after))
+  
+  unlink(outdir, recursive = TRUE)
+})
+
+test_that("status() counts only consolidated successful runs", {
+  outdir <- tempfile("piecemeal_status_consolidated_")
+  sim <- piecemeal::init(outdir)
+  sim$factorial(x = 1:5)$nrep(1)
+  sim$worker(function(x) list(result = x * 2))
+  
+  # Run all successful
+  sim$run(shuffle = FALSE)
+  
+  # Status before consolidation - all should be Done
+  status_before <- sim$status()
+  expect_equal(status_before["Done"], 5)
+  expect_equal(sum(status_before), 5)
+  
+  # Consolidate all
+  count <- sim$consolidate()
+  expect_equal(count, 5)
+  
+  # Status after consolidation - should still be all Done
+  status_after <- sim$status()
+  expect_equal(status_after["Done"], 5)
+  expect_equal(sum(status_after), 5)
+  
+  # The results should be identical
+  expect_equal(as.numeric(status_before), as.numeric(status_after))
+  expect_equal(names(status_before), names(status_after))
+  
+  unlink(outdir, recursive = TRUE)
+})
+
