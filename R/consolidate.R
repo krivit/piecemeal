@@ -70,7 +70,7 @@ db_get_result <- function(con, filename) {
   # If con is a string, treat it as outdir and open the database
   if (is.character(con)) {
     outdir <- con
-    con <- db_connect(outdir, mode = "read")
+    con <- db_connect(outdir)
     if (is.null(con)) return(empty_result)
     on.exit(DBI::dbDisconnect(con), add = TRUE)
   }
@@ -206,7 +206,7 @@ get_file_mtimes <- function(outdir, files) {
   # Get mtimes for consolidated files
   if (any(is_consolidated)) {
     cli_progress_message("Scanning consolidated runs")
-    con <- db_connect(outdir, mode = "read")
+    con <- db_connect(outdir)
     if (!is.null(con)) {
       on.exit(DBI::dbDisconnect(con), add = TRUE)
       
