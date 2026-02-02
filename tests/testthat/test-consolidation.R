@@ -338,7 +338,6 @@ test_that("run_config() skips runs already in consolidated database", {
 
   # Verify all individual files were removed
   remaining_files <- list.files(outdir, pattern = "\\.rds$", recursive = TRUE)
-  remaining_files <- remaining_files[!grepl("consolidated\\.db", remaining_files)]
   expect_equal(length(remaining_files), 0)
 
   # Now try to run again - all runs should be skipped
@@ -365,3 +364,4 @@ test_that("run_config() skips runs already in consolidated database", {
 
   unlink(outdir, recursive = TRUE)
 })
+

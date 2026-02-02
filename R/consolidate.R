@@ -121,11 +121,12 @@ db_has_result <- function(outdir, filename) {
   if (close_con) on.exit(DBI::dbDisconnect(con))
 
   # Check if the filename exists in the database
+  # Use EXISTS for better performance than COUNT(*)
   result <- DBI::dbGetQuery(con, "
-    SELECT COUNT(*) as count FROM results WHERE filename = ?
+    SELECT EXISTS(SELECT 1 FROM results WHERE filename = ? LIMIT 1) as exists
   ", params = list(basename(filename)))
 
-  result$count[1] > 0
+  as.logical(result$exists[1])
 }
 
 #' Consolidate individual RDS files into the SQLite database
