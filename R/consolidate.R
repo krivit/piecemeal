@@ -69,8 +69,7 @@ db_store_result <- function(con, filename, rds_data, mtime) {
 db_get_result <- function(con, filename) {
   # If con is a string, treat it as outdir and open the database
   if (is.character(con)) {
-    outdir <- con
-    con <- db_connect(outdir)
+    con <- db_connect(con)
     if (is.null(con)) return(empty_result)
     on.exit(DBI::dbDisconnect(con), add = TRUE)
   }
@@ -101,24 +100,18 @@ db_list_filenames <- function(con) {
 }
 
 #' Check if a filename exists in the consolidated database
-#' @param outdir The output directory (or a database connection)
+#' @param con The output directory (or a database connection)
 #' @param filename The filename (basename) to check
 #' @return TRUE if the filename exists in the database, FALSE otherwise (or if database doesn't exist)
 #' @keywords internal
 #' @noRd
-db_has_result <- function(outdir, filename) {
+db_has_result <- function(con, filename) {
   # If outdir is a connection, use it directly
-  if (inherits(outdir, "SQLiteConnection")) {
-    con <- outdir
-    close_con <- FALSE
-  } else {
-    # Try to connect to the database (don't create if it doesn't exist)
-    con <- db_connect(outdir, create = FALSE)
+  if (is.character(con)) {
+    con <- db_connect(con)
     if (is.null(con)) return(FALSE)
-    close_con <- TRUE
+    on.exit(DBI::dbDisconnect(con), add = TRUE)
   }
-
-  if (close_con) on.exit(DBI::dbDisconnect(con))
 
   # Check if the filename exists in the database
   # Use EXISTS for better performance than COUNT(*)
