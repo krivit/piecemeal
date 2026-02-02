@@ -480,7 +480,7 @@ Piecemeal <- R6Class("Piecemeal",
           if(o$OK) "Done"
           else if(is.null(o$config)) "Corrupted"
           else trimws(o$output) # the error message
-        }, .progress = "Loading results")
+        }, .progress = "Checking individual results")
       }
       
       # Add all successful consolidated runs as "Done"
