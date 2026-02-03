@@ -687,11 +687,11 @@ run_config <- function(config, error, env = NULL) {
   dir.create(dl <- file.path(dn, "dirlock"), recursive = TRUE, showWarnings = FALSE)
   fnlock <- filelock::lock(paste0(fn, ".lock"), timeout = 0)
   suppressWarnings(try(unlink(dl, recursive = TRUE), silent = TRUE))
+  if(is.null(fnlock)) return(paste(fn, "SKIPPED", sep = "\n"))
   on.exit({
     filelock::unlock(fnlock)
     unlink(paste0(fn, ".lock"))
   })
-  if(is.null(fnlock)) return(paste(fn, "SKIPPED", sep = "\n"))
 
   treatment <- config$treatment
   config$treatment <- NULL
