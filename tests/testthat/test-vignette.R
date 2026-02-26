@@ -3,7 +3,7 @@
 o <- options(cli.default_handler = function(...) {})
 
 # 1. Setup
-outdir <- file.path(tempdir(), "piecemeal_vignette_test")
+outdir <- tempfile("piecemeal_vignette_test_")
 sim <- piecemeal::init(outdir)
 sim$reset(confirm = FALSE)
 sim$cluster(2)
