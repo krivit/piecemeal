@@ -124,6 +124,24 @@ Piecemeal <- R6Class("Piecemeal",
                    stop(e)
                  })
       }
+    },
+    .eta = function(window = 3600, done, doing) {
+      if(is(window, "difftime")) window <- as.numeric(window, units = "secs")
+
+      inprog <- length(doing) # Not used in the calculation.
+
+      total <- max(1, length(private$.treatments)) * length(private$.seeds)
+      left <- total - length(done)
+
+      mtimes <- get_file_mtimes(private$.outdir, done)
+      mtimes <- mtimes[mtimes >= max(mtimes) - window]
+
+      recent <- length(mtimes) - 1
+      window <- as.numeric(max(mtimes) - min(mtimes), units = "secs")
+
+      cost <- window / recent
+      structure(list(window = window, recent = recent, cost = cost, rate = 1/cost, left = left * cost, eta = Sys.time() + left * cost, inprog = inprog),
+                class = "Piecemeal_eta", outdir = private$.outdir)
     }
   ),
 
@@ -489,14 +507,15 @@ Piecemeal <- R6Class("Piecemeal",
       Result <- c(Result, rep_len("Done", n_consolidated))
 
       total <- max(1, length(private$.treatments)) * length(private$.seeds)
-      inprog <- length(private$.doing())
+      doing <- private$.doing()
+      inprog <- length(doing)
       Result <- c(Result,
                   rep_len("Running (approx.)", inprog),
                   rep_len("ToDo", max(0, total - length(done) - inprog)))
 
       o <- table(Result)
       attr(o, "outdir") <- private$.outdir
-      if ("Done" %in% names(o)) attr(o, "eta") <- self$eta(...)
+      if ("Done" %in% names(o)) attr(o, "eta") <- private$.eta(..., done = done, doing = doing)
       class(o) <- c("Piecemeal_status", class(o))
       o
     },
@@ -507,23 +526,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @note The estimation method is a simple ratio, so it may be biased under some circumstances. Also, it does not check if the runs have been completed successfully.
     #' @return A list with elements `window`, `recent`, `cost`, `left`, `rate`, and `eta`, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
     eta = function(window = 3600) {
-      if(is(window, "difftime")) window <- as.numeric(window, units = "secs")
-
-      done <- private$.done()
-      inprog <- length(private$.doing()) # Not used in the calculation.
-
-      total <- max(1, length(private$.treatments)) * length(private$.seeds)
-      left <- total - length(done)
-
-      mtimes <- get_file_mtimes(private$.outdir, done)
-      mtimes <- mtimes[mtimes >= max(mtimes) - window]
-
-      recent <- length(mtimes) - 1
-      window <- as.numeric(max(mtimes) - min(mtimes), units = "secs")
-
-      cost <- window / recent
-      structure(list(window = window, recent = recent, cost = cost, rate = 1/cost, left = left * cost, eta = Sys.time() + left * cost, inprog = inprog),
-                class = "Piecemeal_eta", outdir = private$.outdir)
+      private$.eta(window, private$.done(), private$.doing())
     }
   )
   )
