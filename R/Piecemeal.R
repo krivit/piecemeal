@@ -643,15 +643,25 @@ is_locked <- function(path) {
   # No lock file -> not locked.
   if (!file.exists(path)) return(FALSE)
 
-  lock <- filelock::lock(path, timeout = 0)
+  check_lock <- function(path) {
+    lock <- filelock::lock(path, timeout = 0)
 
-  # Lock attempt unsuccessful -> locked
-  if (is.null(lock)) return(TRUE)
+    # Lock attempt unsuccessful -> locked
+    if (is.null(lock)) return(TRUE)
 
-  # Delete and unlock -> unlocked
-  unlink(path)
-  filelock::unlock(lock)
-  FALSE
+    # Delete and unlock -> unlocked
+    unlink(path)
+    filelock::unlock(lock)
+    FALSE
+  }
+
+  ## filelock::lock() leaks file descriptors
+  ## (https://github.com/r-lib/filelock/issues/28), so this is a
+  ## workaround at least on Unix-alikes: the file descriptor will be
+  ## closed with the child process.
+  if (.Platform$OS.type == "unix")
+    parallel::mccollect(parallel::mcparallel(check_lock(path)))
+  else check_lock(path)
 }
 
 # Empty result structure for missing/corrupted files
