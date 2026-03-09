@@ -27,4 +27,9 @@ The \code{\link{Piecemeal}} \code{\link[R6:R6Class]{R6}} class for details, the 
 \author{
 \strong{Maintainer}: Pavel N. Krivitsky \email{pavel@statnet.org} (\href{https://orcid.org/0000-0002-9101-3362}{ORCID})
 
+Authors:
+\itemize{
+  \item Pavel N. Krivitsky \email{pavel@statnet.org} (\href{https://orcid.org/0000-0002-9101-3362}{ORCID})
+}
+
 }

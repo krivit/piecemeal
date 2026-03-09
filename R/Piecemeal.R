@@ -588,11 +588,12 @@ find_rate_unit <- function(hz) {
          else if(hz >= 1/60/60) "hour"
          else "day"
 
-  structure(hz * switch(per, sec = 1, min = 60, hour = 60*60, day = 24*60*60), per = per, class = "rate")
+  structure(hz * switch(per, sec = 1, min = 60, hour = 60*60, day = 24*60*60), per = per, class = "piecemeal_rate")
 }
 
 #' @noRd
-format.rate <- function(x, ...) {
+#' @export
+format.piecemeal_rate <- function(x, ...) {
   paste(format(as.numeric(x), ...), "per", attr(x, "per"))
 }
 
