@@ -16,5 +16,5 @@ Suggests:
     testthat (>= 3.2.3),
     rmarkdown
 VignetteBuilder: knitr
-Config/testthat/parallel: true
+Config/testthat/parallel: false
 Config/testthat/edition: 3
