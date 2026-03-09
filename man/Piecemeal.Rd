@@ -79,6 +79,8 @@ sim$result_df()
 \item \href{#method-Piecemeal-print}{\code{Piecemeal$print()}}
 \item \href{#method-Piecemeal-status}{\code{Piecemeal$status()}}
 \item \href{#method-Piecemeal-eta}{\code{Piecemeal$eta()}}
+\item \href{#method-Piecemeal-last_OK}{\code{Piecemeal$last_OK()}}
+\item \href{#method-Piecemeal-last_consolidated}{\code{Piecemeal$last_consolidated()}}
 \item \href{#method-Piecemeal-clone}{\code{Piecemeal$clone()}}
 }
 }
@@ -481,6 +483,26 @@ The window used is actually between the last completed run and the earliest run 
 \subsection{Returns}{
 A list with elements \code{window}, \code{recent}, \code{cost}, \code{left}, \code{rate}, and \code{eta}, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-last_OK"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-last_OK}{}}}
+\subsection{Method \code{last_OK()}}{
+Return the last time a run has finished successfully.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$last_OK()}\if{html}{\out{</div>}}
+}
+
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-last_consolidated"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-last_consolidated}{}}}
+\subsection{Method \code{last_consolidated()}}{
+Return the last time the consolidated database had been updated.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$last_consolidated()}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-clone"></a>}}

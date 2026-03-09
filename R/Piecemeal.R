@@ -527,6 +527,16 @@ Piecemeal <- R6Class("Piecemeal",
     #' @return A list with elements `window`, `recent`, `cost`, `left`, `rate`, and `eta`, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
     eta = function(window = 3600) {
       private$.eta(window, private$.done(), private$.doing())
+    },
+
+    #' @description Return the last time a run has finished successfully.
+    last_OK = function() {
+      file.info(file.path(private$.outdir, "last_OK"), extra_cols = FALSE)$mtime
+    },
+
+    #' @description Return the last time the consolidated database had been updated.
+    last_consolidated = function() {
+      file.info(file.path(private$.outdir, "consolidated.db"), extra_cols = FALSE)$mtime
     }
   )
   )
@@ -730,5 +740,11 @@ run_config <- function(config, error, env = NULL) {
   # result.
   saveRDS(list(seed = seed, treatment = treatment, output = out, config = config, OK = OK), paste0(fn, ".tmp"))
   file.rename(paste0(fn, ".tmp"), fn)
-  if(OK) paste(fn, "OK", sep = "\n") else paste(fn, out, sep = "\n")
+  if (OK) {
+    # Touch the file.
+    file.create(file.path(outdir, "last_OK"))
+    paste(fn, "OK", sep = "\n")
+  } else {
+    paste(fn, out, sep = "\n")
+  }
 }
