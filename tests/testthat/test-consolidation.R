@@ -4,8 +4,14 @@ test_that("Consolidation stores and retrieves results correctly", {
   sim$factorial(a = 1:2, b = 1:2)$nrep(2)
   sim$worker(function(a, b, .seed) list(result = a + b + .seed))
 
+  # Before any consolidation, last_consolidated() returns NA
+  expect_true(is.na(sim$last_consolidated()))
+
   # Run the simulation
   sim$run(shuffle = FALSE)
+
+  # After running but before consolidating, last_consolidated() is still NA
+  expect_true(is.na(sim$last_consolidated()))
 
   # Check that results exist
   initial_files <- list.files(outdir, pattern = "\\.rds$", recursive = TRUE)
@@ -20,6 +26,10 @@ test_that("Consolidation stores and retrieves results correctly", {
   count <- sim$consolidate()
   expect_true(count > 0)
 
+  # After consolidation, last_consolidated() returns a recent timestamp
+  t_consol <- sim$last_consolidated()
+  expect_s3_class(t_consol, "POSIXct")
+  expect_true(!is.na(t_consol))
   # Check that files were removed
   remaining_files <- list.files(outdir, pattern = "\\.rds$", recursive = TRUE)
   remaining_files <- remaining_files[!grepl("consolidated\\.db", remaining_files)]
@@ -64,8 +74,14 @@ test_that("Consolidation only consolidates successful runs", {
     list(result = a)
   })
 
+  # Before any run, last_OK() returns NA
+  expect_true(is.na(sim$last_OK()))
+
   # Run the simulation (will have errors)
   suppressMessages(sim$run(shuffle = FALSE))
+
+  # Two runs succeeded, so last_OK is now set
+  expect_true(!is.na(sim$last_OK()))
 
   # Count files before consolidation
   before_files <- list.files(outdir, pattern = "\\.rds$", recursive = TRUE)
@@ -115,6 +131,17 @@ test_that("Consolidation can be called multiple times safely", {
   # Consolidate all files
   count <- sim$consolidate()
   expect_true(count > 0)
+  t1 <- sim$last_consolidated()
+  expect_true(!is.na(t1))
+
+  # Run more replications and consolidate again; timestamp should advance
+  sim$nrep(2)
+  sim$run(shuffle = FALSE)
+  Sys.sleep(1) # ensure mtime advances
+  count3 <- sim$consolidate()
+  expect_true(count3 > 0)
+  t2 <- sim$last_consolidated()
+  expect_true(t2 >= t1)
 
   # Try to consolidate again (should return 0 since no files left)
   count2 <- sim$consolidate()
@@ -364,4 +391,3 @@ test_that("run_config() skips runs already in consolidated database", {
 
   unlink(outdir, recursive = TRUE)
 })
-
