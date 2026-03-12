@@ -134,10 +134,10 @@ Piecemeal <- R6Class("Piecemeal",
       left <- total - length(done)
 
       mtimes <- get_file_mtimes(private$.outdir, done)
-      mtimes <- mtimes[mtimes >= max(mtimes) - window]
+      mtimes <- mtimes[mtimes >= suppressWarnings(max(mtimes)) - window]
 
       recent <- length(mtimes) - 1
-      window <- as.numeric(max(mtimes) - min(mtimes), units = "secs")
+      window <- as.numeric(suppressWarnings(max(mtimes) - min(mtimes)), units = "secs")
 
       cost <- window / recent
       structure(list(window = window, recent = recent, cost = cost, rate = 1/cost, left = left * cost, eta = Sys.time() + left * cost, inprog = inprog),
@@ -515,7 +515,7 @@ Piecemeal <- R6Class("Piecemeal",
 
       o <- table(Result)
       attr(o, "outdir") <- private$.outdir
-      if ("Done" %in% names(o)) attr(o, "eta") <- private$.eta(..., done = done, doing = doing)
+      if ("Done" %in% names(o) && o["Done"] > 1L) attr(o, "eta") <- private$.eta(..., done = done, doing = doing)
       class(o) <- c("Piecemeal_status", class(o))
       o
     },
@@ -610,6 +610,11 @@ format.piecemeal_rate <- function(x, ...) {
 #' @noRd
 #' @export
 print.Piecemeal_eta <- function(x, ...) {
+  if (length(x$recent) < 2L) {
+    message("Too few runs completed: no ETA calculation possible.")
+    return(invisible(x))
+  }
+
   cat("A Piecemeal simulation ETA calculation\n")
   cat("Output directory:", attr(x, "outdir"), "\n")
   cat("Based on", x$recent, "completions in", format(find_time_unit(x$window), digits = 1), "\n\n")
