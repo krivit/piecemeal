@@ -674,7 +674,7 @@ is_locked <- function(path) {
   ## workaround at least on Unix-alikes: the file descriptor will be
   ## closed with the child process.
   if (.Platform$OS.type == "unix")
-    parallel::mccollect(parallel::mcparallel(check_lock(path)))
+    parallel::mccollect(parallel::mcparallel(check_lock(path)))[[1]]
   else check_lock(path)
 }
 
