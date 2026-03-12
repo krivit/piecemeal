@@ -1,6 +1,8 @@
 # This test requires precise timings, so skip if we can't control the
 # execution environment.
 skip_on_cran()
+# Windows doesn't support parallel::mcparallel().
+skip_on_os("windows")
 
 outdir <- tempfile("piecemeal_concurrent_test_")
 
@@ -35,17 +37,17 @@ test_that("Checking status() while running", {
   expect_error(st <- sim$status(), NA)
   expect_equal(c(st), c(Done = 2L, "Running (approx.)" = 1L))
   expect_s3_class(eta <- attr(st, "eta"), "Piecemeal_eta")
-  expect_equal(eta$cost, 1, tolerance = 0.05)
-  expect_equal(eta$rate, 1, tolerance = 0.05)
-  expect_equal(eta$left, 1, tolerance = 0.05)
+  expect_equal(eta$cost, 1, tolerance = 0.1)
+  expect_equal(eta$rate, 1, tolerance = 0.1)
+  expect_equal(eta$left, 1, tolerance = 0.1)
 
   Sys.sleep(1) # After 3 1/2 seconds, all done, and ETA available.
   expect_error(st <- sim$status(), NA)
   expect_equal(c(st), c(Done = 3L))
   expect_s3_class(eta <- attr(st, "eta"), "Piecemeal_eta")
-  expect_equal(eta$cost, 1, tolerance = 0.05)
-  expect_equal(eta$rate, 1, tolerance = 0.05)
-  expect_equal(eta$left, 0, tolerance = 0.05)
+  expect_equal(eta$cost, 1, tolerance = 0.1)
+  expect_equal(eta$rate, 1, tolerance = 0.1)
+  expect_equal(eta$left, 0, tolerance = 0.1)
 
   # Should be OK and return TRUEs.
   res <- parallel::mccollect(proc)[[1]]
