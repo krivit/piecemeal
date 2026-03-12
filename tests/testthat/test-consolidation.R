@@ -365,3 +365,87 @@ test_that("run_config() skips runs already in consolidated database", {
   unlink(outdir, recursive = TRUE)
 })
 
+
+test_that("last_OK() returns NA before any run and a timestamp after a successful run", {
+  outdir <- tempfile("piecemeal_last_ok_")
+  sim <- piecemeal::init(outdir)
+  sim$factorial(a = 1:2)$nrep(1)
+  sim$worker(function(a) list(result = a))
+
+  # Before any run, last_OK file does not exist -> mtime is NA
+  expect_true(is.na(sim$last_OK()))
+
+  # Run the simulation
+  sim$run(shuffle = FALSE)
+
+  t_after <- sim$last_OK()
+  expect_s3_class(t_after, "POSIXct")
+  expect_true(!is.na(t_after))
+  # The timestamp should be recent (within the last minute)
+  expect_true(as.numeric(Sys.time() - t_after, units = "secs") < 60)
+
+  unlink(outdir, recursive = TRUE)
+})
+
+test_that("last_OK() is not updated when all runs fail", {
+  outdir <- tempfile("piecemeal_last_ok_fail_")
+  sim <- piecemeal::init(outdir)
+  sim$factorial(a = 1:2)$nrep(1)
+  sim$worker(function(a) stop("always fails"))
+
+  suppressMessages(sim$run(shuffle = FALSE))
+
+  # No successful run -> last_OK file was never created
+  expect_true(is.na(sim$last_OK()))
+
+  unlink(outdir, recursive = TRUE)
+})
+
+test_that("last_consolidated() returns NA before consolidation and a timestamp after", {
+  outdir <- tempfile("piecemeal_last_consol_")
+  sim <- piecemeal::init(outdir)
+  sim$factorial(a = 1:3)$nrep(1)
+  sim$worker(function(a) list(result = a))
+
+  # Before any consolidation, the db file does not exist -> mtime is NA
+  expect_true(is.na(sim$last_consolidated()))
+
+  sim$run(shuffle = FALSE)
+
+  # After running but before consolidating, still NA
+  expect_true(is.na(sim$last_consolidated()))
+
+  sim$consolidate()
+
+  t_after <- sim$last_consolidated()
+  expect_s3_class(t_after, "POSIXct")
+  expect_true(!is.na(t_after))
+  # The timestamp should be recent (within the last minute)
+  expect_true(as.numeric(Sys.time() - t_after, units = "secs") < 60)
+
+  unlink(outdir, recursive = TRUE)
+})
+
+test_that("last_consolidated() timestamp advances on subsequent consolidations", {
+  outdir <- tempfile("piecemeal_last_consol2_")
+  sim <- piecemeal::init(outdir)
+  sim$factorial(a = 1:2)$nrep(1)
+  sim$worker(function(a) list(result = a))
+
+  sim$run(shuffle = FALSE)
+  sim$consolidate()
+  t1 <- sim$last_consolidated()
+
+  # Run and consolidate more results
+  sim$nrep(2)
+  sim$run(shuffle = FALSE)
+  Sys.sleep(1) # ensure mtime advances
+  sim$consolidate()
+  t2 <- sim$last_consolidated()
+
+  expect_true(!is.na(t1))
+  expect_true(!is.na(t2))
+  expect_true(t2 >= t1)
+
+  unlink(outdir, recursive = TRUE)
+})
