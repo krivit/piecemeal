@@ -504,7 +504,7 @@ Piecemeal <- R6Class("Piecemeal",
       }
       
       # Add all successful consolidated runs as "Done"
-      Result <- c(Result, rep_len("Done", n_consolidated))
+      Result <- c(Result, rep_len("Done & consolidated", n_consolidated))
 
       total <- max(1, length(private$.treatments)) * length(private$.seeds)
       doing <- private$.doing()
@@ -515,7 +515,10 @@ Piecemeal <- R6Class("Piecemeal",
 
       o <- table(Result)
       attr(o, "outdir") <- private$.outdir
-      if ("Done" %in% names(o) && o["Done"] > 1L) attr(o, "eta") <- private$.eta(..., done = done, doing = doing)
+      attr(o, "last_OK") <- self$last_OK()
+      attr(o, "last_consolidated") <- self$last_consolidated()
+      if (sum(o[startsWith(names(o), "Done")]) > 1L)
+        attr(o, "eta") <- private$.eta(..., done = done, doing = doing)
       class(o) <- c("Piecemeal_status", class(o))
       o
     },
@@ -563,12 +566,22 @@ summary.Piecemeal <- function(object, ...) {
   object$status(...)
 }
 
+format_ago <- function(x) {
+  if (is.na(x)) "never"
+  else paste0(format(x, usetz = TRUE),
+              " (", format(find_time_unit(Sys.time() - x)), " ago)")
+}
+
 #' @noRd
 #' @export
 print.Piecemeal_status <- function(x, ...) {
   cat("A Piecemeal simulation\n")
   cat("Output directory:", attr(x, "outdir"), "\n\n")
   print(as.data.frame(x))
+
+  cat("Last successful completion:", format_ago(attr(x, "last_OK")), "\n")
+  cat("Last consolidation:", format_ago(attr(x, "last_consolidated")), "\n")
+
   if (!is.null(attr(x, "eta"))) {
     cat("\n")
     print(attr(x, "eta"))

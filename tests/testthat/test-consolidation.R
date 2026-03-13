@@ -6,12 +6,16 @@ test_that("Consolidation stores and retrieves results correctly", {
 
   # Before any consolidation, last_consolidated() returns NA
   expect_true(is.na(sim$last_consolidated()))
+  expect_output(print(sim$status()), "Last consolidation: never")
+  expect_output(print(sim$status()), "Last successful completion: never")
 
   # Run the simulation
   sim$run(shuffle = FALSE)
 
   # After running but before consolidating, last_consolidated() is still NA
   expect_true(is.na(sim$last_consolidated()))
+  expect_output(print(sim$status()), "Last consolidation: never")
+  expect_output(print(sim$status()), "Last successful completion: .* (.* ago)")
 
   # Check that results exist
   initial_files <- list.files(outdir, pattern = "\\.rds$", recursive = TRUE)
@@ -30,6 +34,9 @@ test_that("Consolidation stores and retrieves results correctly", {
   t_consol <- sim$last_consolidated()
   expect_s3_class(t_consol, "POSIXct")
   expect_true(!is.na(t_consol))
+  expect_output(print(sim$status()), "Last consolidation: .* (.* ago)")
+  expect_output(print(sim$status()), "Last successful completion: .* (.* ago)")
+
   # Check that files were removed
   remaining_files <- list.files(outdir, pattern = "\\.rds$", recursive = TRUE)
   remaining_files <- remaining_files[!grepl("consolidated\\.db", remaining_files)]
@@ -305,7 +312,7 @@ test_that("status() works efficiently with consolidated results", {
   # Check status after consolidation
   # This tests that status() correctly counts consolidated files without reading blob contents
   status_after <- sim$status()
-  expect_equal(status_before["Done"], status_after["Done"])
+  expect_equal(status_before["Done"], status_after["Done & consolidated"], ignore_attr = TRUE)
   
   # Error should still be present
   expect_true(any(grepl("Intentional error", names(status_after))))
@@ -336,12 +343,13 @@ test_that("status() counts only consolidated successful runs", {
   
   # Status after consolidation - should still be all Done
   status_after <- sim$status()
-  expect_equal(as.numeric(status_after["Done"]), 5)
+  expect_equal(as.numeric(status_after["Done & consolidated"]), 5)
   expect_equal(sum(status_after), 5)
   
   # The results should be identical
   expect_equal(as.numeric(status_before), as.numeric(status_after))
-  expect_equal(names(status_before), names(status_after))
+  expect_equal(names(status_before), "Done")
+  expect_equal(names(status_after), "Done & consolidated")
   
   unlink(outdir, recursive = TRUE)
 })
