@@ -610,7 +610,7 @@ format.piecemeal_rate <- function(x, ...) {
 #' @noRd
 #' @export
 print.Piecemeal_eta <- function(x, ...) {
-  if (length(x$recent) < 2L) {
+  if (x$recent < 2L) {
     message("Too few runs completed: no ETA calculation possible.")
     return(invisible(x))
   }
