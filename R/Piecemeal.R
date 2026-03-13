@@ -577,7 +577,17 @@ format_ago <- function(x) {
 print.Piecemeal_status <- function(x, ...) {
   cat("A Piecemeal simulation\n")
   cat("Output directory:", attr(x, "outdir"), "\n\n")
-  print(as.data.frame(x))
+
+  df <- as.data.frame(x)
+  total <- sum(df$Freq)
+  df$Percentage <- if (total > 0)
+    paste0(round(100 * df$Freq / total, 1), "%")
+  else
+    rep("0%", nrow(df))
+  df <- rbind(df, data.frame(Result = "Total", Freq = total,
+                             Percentage = "100%"))
+  print(df, row.names = FALSE)
+  cat("\n")
 
   cat("Last successful completion:", format_ago(attr(x, "last_OK")), "\n")
   cat("Last consolidation:", format_ago(attr(x, "last_consolidated")), "\n")
