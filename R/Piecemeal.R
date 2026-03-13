@@ -569,7 +569,7 @@ summary.Piecemeal <- function(object, ...) {
 format_ago <- function(x) {
   if (is.na(x)) "never"
   else paste0(format(x, usetz = TRUE),
-              " (", format(find_time_unit(Sys.time() - x)), " ago)")
+              " (", format(find_time_unit(Sys.time() - x), digits = 1), " ago)")
 }
 
 #' @noRd
@@ -598,20 +598,24 @@ envname <- function(e) {
 
 find_time_unit <- function(dt) {
   dt <- as.numeric(dt, units = "secs")
-  units <- if(dt < 60*2) "secs"
-           else if(dt < 60*60*2) "mins"
-           else "hours"
+  # This works because "s" > "m" > "h" in the alphabet.
+  units <- max(ifelse(is.na(dt) | dt < 60 * 2, "secs",
+               ifelse(dt < 60 * 60 * 2, "mins",
+                      "hours")))
 
-  as.difftime(dt / switch(units, secs = 1, mins = 60, hours = 60*60), units = units)
+  as.difftime(dt / c(secs = 1, mins = 60, hours = 60 * 60)[units],
+              units = units)
 }
 
 find_rate_unit <- function(hz) {
-  per <- if(hz >= 1) "sec"
-         else if(hz >= 1/60) "min"
-         else if(hz >= 1/60/60) "hour"
-         else "day"
+  # This works because "s" > "m" > "h" > "d" in the alphabet.
+  per <- min(ifelse(is.na(hz) | hz >= 1, "sec",
+             ifelse(hz >= 1 / 60, "min",
+             ifelse(hz >= 1 / 60 / 60, "hour",
+                    "day"))))
 
-  structure(hz * switch(per, sec = 1, min = 60, hour = 60*60, day = 24*60*60), per = per, class = "piecemeal_rate")
+  structure(hz * c(sec = 1, min = 60, hour = 60 * 60, day = 24 * 60 * 60)[per],
+            per = per, class = "piecemeal_rate")
 }
 
 #' @noRd
