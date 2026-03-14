@@ -513,14 +513,16 @@ Piecemeal <- R6Class("Piecemeal",
                   rep_len("Running (approx.)", inprog),
                   rep_len("ToDo", max(0, total - length(done) - inprog)))
 
-      o <- table(Result)
-      attr(o, "outdir") <- private$.outdir
-      attr(o, "last_OK") <- self$last_OK()
-      attr(o, "last_consolidated") <- self$last_consolidated()
+      o <- table(Result)     
       if (sum(o[startsWith(names(o), "Done")]) > 1L)
         attr(o, "eta") <- private$.eta(..., done = done, doing = doing)
-      class(o) <- c("Piecemeal_status", class(o))
-      o
+      # NB: last_*() should be called after .eta(), because the latter
+      # takes a nontrivial amount of time.
+      structure(o,
+                outdir = private$.outdir,
+                last_OK = self$last_OK(),
+                last_consolidated = self$last_consolidated(),
+                class = c("Piecemeal_status", class(o)))
     },
 
     #' @description Estimate the rate at which runs are being completed and how much more time is needed.
