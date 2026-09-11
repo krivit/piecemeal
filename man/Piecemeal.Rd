@@ -2,7 +2,7 @@
 % Please edit documentation in R/Piecemeal.R
 \name{Piecemeal}
 \alias{Piecemeal}
-\title{The \code{Piecemeal} \code{\link[R6:R6Class]{R6}} Class}
+\title{The \code{Piecemeal} \code{\link[R6:R6]{R6}} Class}
 \description{
 This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See \href{../doc/piecemeal.html}{the vignette \code{vignette("piecemeal")}} for long worked example.
 }
@@ -57,252 +57,302 @@ sim$result_df()
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-Piecemeal-new}{\code{Piecemeal$new()}}
-\item \href{#method-Piecemeal-cluster}{\code{Piecemeal$cluster()}}
-\item \href{#method-Piecemeal-export_vars}{\code{Piecemeal$export_vars()}}
-\item \href{#method-Piecemeal-setup}{\code{Piecemeal$setup()}}
-\item \href{#method-Piecemeal-worker}{\code{Piecemeal$worker()}}
-\item \href{#method-Piecemeal-treatments}{\code{Piecemeal$treatments()}}
-\item \href{#method-Piecemeal-factorial}{\code{Piecemeal$factorial()}}
-\item \href{#method-Piecemeal-nrep}{\code{Piecemeal$nrep()}}
-\item \href{#method-Piecemeal-seeds}{\code{Piecemeal$seeds()}}
-\item \href{#method-Piecemeal-run}{\code{Piecemeal$run()}}
-\item \href{#method-Piecemeal-todo}{\code{Piecemeal$todo()}}
-\item \href{#method-Piecemeal-result_list}{\code{Piecemeal$result_list()}}
-\item \href{#method-Piecemeal-result_df}{\code{Piecemeal$result_df()}}
-\item \href{#method-Piecemeal-reset}{\code{Piecemeal$reset()}}
-\item \href{#method-Piecemeal-clean}{\code{Piecemeal$clean()}}
-\item \href{#method-Piecemeal-erred}{\code{Piecemeal$erred()}}
-\item \href{#method-Piecemeal-consolidate}{\code{Piecemeal$consolidate()}}
-\item \href{#method-Piecemeal-options}{\code{Piecemeal$options()}}
-\item \href{#method-Piecemeal-print}{\code{Piecemeal$print()}}
-\item \href{#method-Piecemeal-status}{\code{Piecemeal$status()}}
-\item \href{#method-Piecemeal-eta}{\code{Piecemeal$eta()}}
-\item \href{#method-Piecemeal-last_OK}{\code{Piecemeal$last_OK()}}
-\item \href{#method-Piecemeal-last_consolidated}{\code{Piecemeal$last_consolidated()}}
-\item \href{#method-Piecemeal-clone}{\code{Piecemeal$clone()}}
-}
+  \itemize{
+    \item \href{#method-Piecemeal-initialize}{\code{Piecemeal$new()}}
+    \item \href{#method-Piecemeal-cluster}{\code{Piecemeal$cluster()}}
+    \item \href{#method-Piecemeal-export_vars}{\code{Piecemeal$export_vars()}}
+    \item \href{#method-Piecemeal-setup}{\code{Piecemeal$setup()}}
+    \item \href{#method-Piecemeal-worker}{\code{Piecemeal$worker()}}
+    \item \href{#method-Piecemeal-treatments}{\code{Piecemeal$treatments()}}
+    \item \href{#method-Piecemeal-factorial}{\code{Piecemeal$factorial()}}
+    \item \href{#method-Piecemeal-nrep}{\code{Piecemeal$nrep()}}
+    \item \href{#method-Piecemeal-seeds}{\code{Piecemeal$seeds()}}
+    \item \href{#method-Piecemeal-test}{\code{Piecemeal$test()}}
+    \item \href{#method-Piecemeal-run}{\code{Piecemeal$run()}}
+    \item \href{#method-Piecemeal-todo}{\code{Piecemeal$todo()}}
+    \item \href{#method-Piecemeal-result_list}{\code{Piecemeal$result_list()}}
+    \item \href{#method-Piecemeal-result_df}{\code{Piecemeal$result_df()}}
+    \item \href{#method-Piecemeal-reset}{\code{Piecemeal$reset()}}
+    \item \href{#method-Piecemeal-clean}{\code{Piecemeal$clean()}}
+    \item \href{#method-Piecemeal-erred}{\code{Piecemeal$erred()}}
+    \item \href{#method-Piecemeal-debug}{\code{Piecemeal$debug()}}
+    \item \href{#method-Piecemeal-consolidate}{\code{Piecemeal$consolidate()}}
+    \item \href{#method-Piecemeal-options}{\code{Piecemeal$options()}}
+    \item \href{#method-Piecemeal-print}{\code{Piecemeal$print()}}
+    \item \href{#method-Piecemeal-status}{\code{Piecemeal$status()}}
+    \item \href{#method-Piecemeal-eta}{\code{Piecemeal$eta()}}
+    \item \href{#method-Piecemeal-last_OK}{\code{Piecemeal$last_OK()}}
+    \item \href{#method-Piecemeal-last_consolidated}{\code{Piecemeal$last_consolidated()}}
+    \item \href{#method-Piecemeal-clone}{\code{Piecemeal$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-Piecemeal-new"></a>}}
-\if{latex}{\out{\hypertarget{method-Piecemeal-new}{}}}
-\subsection{Method \code{new()}}{
-Create a new \code{Piecemeal} instance.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$new(outdir)}\if{html}{\out{</div>}}
+\if{html}{\out{<a id="method-Piecemeal-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-initialize}{}}}
+\subsection{\code{Piecemeal$new()}}{
+  Create a new \code{Piecemeal} instance.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$new(outdir)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{outdir}}{the directory to hold the partial simulation results.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{outdir}}{the directory to hold the partial simulation results.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-cluster"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-cluster}{}}}
-\subsection{Method \code{cluster()}}{
-Cluster settings for the piecemeal run.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$cluster(...)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$cluster()}}{
+  Cluster settings for the piecemeal run.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$cluster(...)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{...}}{either arguments to \code{\link[=makeCluster]{makeCluster()}} or a single argument containing either an existing cluster or \code{NULL} to disable clustering.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{...}}{either arguments to \code{\link[=makeCluster]{makeCluster()}} or a single argument containing either an existing cluster or \code{NULL} to disable clustering.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-export_vars"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-export_vars}{}}}
-\subsection{Method \code{export_vars()}}{
-Specify variables to be copied from the manager node to the worker nodes' global environment. (See \code{\link[parallel:clusterApply]{parallel::clusterExport()}}.)
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$export_vars(varlist, envir = parent.frame(), .add = TRUE)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$export_vars()}}{
+  Specify variables to be copied from the manager node to the worker nodes' global environment. (See \code{\link[parallel:clusterExport]{parallel::clusterExport()}}.)
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$export_vars(varlist, envir = parent.frame(), .add = TRUE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{varlist}}{a character vector with variable names.}
+      \item{\code{envir}}{the environment on the manager node from which to take the variables; defaults to the current environment.}
+      \item{\code{.add}}{whether the new variables should be added to the current list (if \code{TRUE}, the default) or replace it (if \code{FALSE}).}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{varlist}}{a character vector with variable names.}
-
-\item{\code{envir}}{the environment on the manager node from which to take the variables; defaults to the current environment.}
-
-\item{\code{.add}}{whether the new variables should be added to the current list (if \code{TRUE}, the default) or replace it (if \code{FALSE}).}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-setup"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-setup}{}}}
-\subsection{Method \code{setup()}}{
-Specify code to be run on each worker node at the start of the simulation; if running locally, it will be evaluated in the global environment.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$setup(
+\subsection{\code{Piecemeal$setup()}}{
+  Specify code to be run on each worker node at the start of the simulation; if running locally, it will be evaluated in the global environment.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$setup(
   expr = {
  }
-)}\if{html}{\out{</div>}}
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{expr}}{an expression; if passed, replaces the previous expression; if empty, resets it to nothing.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{expr}}{an expression; if passed, replaces the previous expression; if empty, resets it to nothing.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-worker"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-worker}{}}}
-\subsection{Method \code{worker()}}{
-Specify the function to be run for each treatment configuration; it will be run in the global environment.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$worker(fun)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$worker()}}{
+  Specify the function to be run for each treatment configuration; it will be run in the global environment.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$worker(fun)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{fun}}{a function whose arguments are specified by \verb{$treatments()} and \verb{$factorial()}; if it has \code{.seed} as a named argument, the seed will be passed as well.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{fun}}{a function whose arguments are specified by \verb{$treatments()} and \verb{$factorial()}; if it has \code{.seed} as a named argument, the seed will be passed as well.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-treatments"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-treatments}{}}}
-\subsection{Method \code{treatments()}}{
-Specify a list of treatment configurations to be run.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$treatments(l, .add = TRUE)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$treatments()}}{
+  Specify a list of treatment configurations to be run.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$treatments(l, .add = TRUE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{l}}{a list, typically of lists of arguments to be passed to the function specified by \code{worker}; it is recommended that these be as compact as possible, since they are \code{\link{serialize}}d and sent to the worker node for every combination of treatment configuration and random seed.}
+      \item{\code{.add}}{whether the new treatment configurations should be added to the current list (if \code{TRUE}, the default) or replace it (if \code{FALSE}.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{l}}{a list, typically of lists of arguments to be passed to the function specified by \code{worker}; it is recommended that these be as compact as possible, since they are \code{\link{serialize}}d and sent to the worker node for every combination of treatment configuration and random seed.}
-
-\item{\code{.add}}{whether the new treatment configurations should be added to the current list (if \code{TRUE}, the default) or replace it (if \code{FALSE}.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-factorial"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-factorial}{}}}
-\subsection{Method \code{factorial()}}{
-Specify a list of treatment configurations to be run in a factorial design.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$factorial(..., .filter = function(...) TRUE, .add = TRUE)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$factorial()}}{
+  Specify a list of treatment configurations to be run in a factorial design.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$factorial(..., .filter = function(...) TRUE, .add = TRUE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{...}}{vectors or lists whose Cartesian product will added to the treatment list; it is recommended that these be as compact as possible, since they are \code{\link{serialize}}d and sent to the worker node for every combination of treatment configuration and random seed.}
+      \item{\code{.filter}}{a function that takes the same arguments as worker and returns \code{FALSE} if the treatment configuration should be skipped; defaults to accepting all configurations.}
+      \item{\code{.add}}{whether the new treatment configurations should be added to the current list (if \code{TRUE}, the default) or replace it (if \code{FALSE}.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{...}}{vectors or lists whose Cartesian product will added to the treatment list; it is recommended that these be as compact as possible, since they are \code{\link{serialize}}d and sent to the worker node for every combination of treatment configuration and random seed.}
-
-\item{\code{.filter}}{a function that takes the same arguments as worker and returns \code{FALSE} if the treatment configuration should be skipped; defaults to accepting all configurations.}
-
-\item{\code{.add}}{whether the new treatment configurations should be added to the current list (if \code{TRUE}, the default) or replace it (if \code{FALSE}.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-nrep"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-nrep}{}}}
-\subsection{Method \code{nrep()}}{
-Specify a number of replications for each treatment configuration (starts out at 1).
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$nrep(nrep)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$nrep()}}{
+  Specify a number of replications for each treatment configuration (starts out at 1).
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$nrep(nrep)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{nrep}}{a positive integer giving the number of replications; the seeds will be set to \code{1:nrep}.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{nrep}}{a positive integer giving the number of replications; the seeds will be set to \code{1:nrep}.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-seeds"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-seeds}{}}}
-\subsection{Method \code{seeds()}}{
-Specify the seeds to be used for each replication of each treatment configuration.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$seeds(seeds)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$seeds()}}{
+  Specify the seeds to be used for each replication of each treatment configuration.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$seeds(seeds)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{seeds}}{an integer vector of seeds; its length will be used to infer the number of replications.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{seeds}}{an integer vector of seeds; its length will be used to infer the number of replications.}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-test"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-test}{}}}
+\subsection{\code{Piecemeal$test()}}{
+  Test-run some treatment configurations on the local system and return their results without saving.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$test(config = 1, shuffle = TRUE, error = recover)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{config, shuffle}}{see Details.}
+      \item{\code{error}}{sets \code{\link[=options]{options()}} \verb{error=} option before calling the worker.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    The configurations to run are determined as follows:
+\enumerate{
+\item If \code{config} is numeric, it is treated as a list of treatment configurations to run in the same format as that of \code{Piecemeal$todo()}. If only passing one configuration, remember to wrap it in \code{\link[=list]{list()}}.
+\item If \code{config} is a number and \code{shuffle == TRUE} (the default), then run \code{config} configurations, chosen at random from those left to do.
+\item If \code{config} is numeric and \code{shuffle == FALSE}, \code{config} is treated as a vector of indices from the list returned by \code{Piecemeal$todo()}.
 }
-\if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A list containing the results of the runs, with each sublist's element \verb{$output} containing the value returned by the worker. They are not saved.
+  }
 }
-}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-run"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-run}{}}}
-\subsection{Method \code{run()}}{
-Run the simulation.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$run(shuffle = TRUE)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$run()}}{
+  Run the simulation.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$run(shuffle = TRUE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{shuffle}}{Should the treatment configurations be run in a random order (\code{TRUE}, the default) or in the order in which they were added (\code{FALSE})?}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    Invisibly, a character vector with an element for each seed and treatment configuration combination attempted, indicating its file name and status, including errors.
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{shuffle}}{Should the treatment configurations be run in a random order (\code{TRUE}, the default) or in the order in which they were added (\code{FALSE})?}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-Invisibly, a character vector with an element for each seed and treatment configuration combination attempted, indicating its file name and status, including errors.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-todo"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-todo}{}}}
-\subsection{Method \code{todo()}}{
-List the configurations still to be run.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$todo()}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$todo()}}{
+  List the configurations still to be run.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$todo()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A list of lists with arguments to the worker functions and worker-specific configuration settings; also an attribute \code{"done"} giving the number of configurations skipped because they are already done.
+  }
 }
 
-\subsection{Returns}{
-A list of lists with arguments to the worker functions and worker-specific configuration settings; also an attribute \code{"done"} giving the number of configurations skipped because they are already done.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-result_list"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-result_list}{}}}
-\subsection{Method \code{result_list()}}{
-Scan through the results files and collate them into a list.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$result_list(n = Inf, trt_tf = identity, out_tf = identity)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{n}}{maximum number of files to load; if less than the number of results, a systematic sample is taken.}
-
-\item{\code{trt_tf, out_tf}}{functions that take the treatment configuration list and the output (if not an error) respectively, and transform them; this is helpful when, for example, the output is big and so loading all the files will run out of memory.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A list of lists containing the contents of the result files.
+\subsection{\code{Piecemeal$result_list()}}{
+  Scan through the results files and collate them into a list.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$result_list(n = Inf, trt_tf = identity, out_tf = identity)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{n}}{maximum number of files to load; if less than the number of results, a systematic sample is taken.}
+      \item{\code{trt_tf, out_tf}}{functions that take the treatment configuration list and the output (if not an error) respectively, and transform them; this is helpful when, for example, the output is big and so loading all the files will run out of memory.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A list of lists containing the contents of the result files.
 \describe{
 \item{\code{treatment}}{arguments passed to the worker}
 \item{\code{seed}}{the seed set just before calling the worker}
@@ -310,215 +360,268 @@ A list of lists containing the contents of the result files.
 \item{\code{OK}}{whether the worker succeeded or produced an error}
 \item{\code{config}}{miscellaneous configuration settings such as the file name}
 }
+  }
 }
-}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-result_df"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-result_df}{}}}
-\subsection{Method \code{result_df()}}{
-Scan through the results files and collate them into a data frame.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$result_df(trt_tf = identity, out_tf = identity, rds = FALSE, ...)}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{trt_tf, out_tf}}{functions that take the treatment configuration list and the output respectively, and return named lists that become data frame columns; a special value \code{I} instead creates columns \code{treatment} and/or \code{output} with the respective lists copied as is.}
-
-\item{\code{rds}}{whether to include an \code{.rds} column described below.}
-
-\item{\code{...}}{additional arguments, passed to \code{Piecemeal$result_list()}.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Returns}{
-A data frame with columns corresponding to the values returned by \code{trt_tf} and \code{out_tf}, with the following additional columns:
+\subsection{\code{Piecemeal$result_df()}}{
+  Scan through the results files and collate them into a data frame.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$result_df(trt_tf = identity, out_tf = identity, rds = FALSE, ...)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{trt_tf, out_tf}}{functions that take the treatment configuration list and the output respectively, and return named lists that become data frame columns; a special value \code{I} instead creates columns \code{treatment} and/or \code{output} with the respective lists copied as is.}
+      \item{\code{rds}}{whether to include an \code{.rds} column described below.}
+      \item{\code{...}}{additional arguments, passed to \code{Piecemeal$result_list()}.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A data frame with columns corresponding to the values returned by \code{trt_tf} and \code{out_tf}, with the following additional columns:
 \describe{
 \item{\code{.seed}}{the random seed used.}
 \item{\code{.rds}}{the path to the RDS file (if requested).}
 }
 Runs that erred are filtered out.
+  }
 }
-}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-reset"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-reset}{}}}
-\subsection{Method \code{reset()}}{
-Clear the simulation results so far.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$reset(confirm = interactive())}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$reset()}}{
+  Clear the simulation results so far.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$reset(confirm = interactive())}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{confirm}}{whether the user should be prompted to confirm deletion.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{confirm}}{whether the user should be prompted to confirm deletion.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-clean"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-clean}{}}}
-\subsection{Method \code{clean()}}{
-Delete the result files for which the worker function produced an error and/or which were somehow corrupted, or based on some other predicate.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$clean(which = function(res) !res$OK)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$clean()}}{
+  Delete the result files for which the worker function produced an error and/or which were somehow corrupted, or based on some other predicate.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$clean(which = function(res) !res$OK)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{which}}{a function of a result list (see \code{Piecemeal$result_list()}) returning \code{TRUE} if the result file is to be deleted and \code{FALSE} otherwise.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{which}}{a function of a result list (see \code{Piecemeal$result_list()}) returning \code{TRUE} if the result file is to be deleted and \code{FALSE} otherwise.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-erred"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-erred}{}}}
-\subsection{Method \code{erred()}}{
-List the configurations for which the worker function failed.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$erred()}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$erred()}}{
+  List the configurations for which the worker function failed.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$erred(n = Inf)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{n}}{return up to this many errors.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-debug"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-debug}{}}}
+\subsection{\code{Piecemeal$debug()}}{
+  Debug the worker for a particular configuration.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$debug(result = 1, error = recover)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{result}}{either a list in the result format (particularly with elements \verb{$seed} with the random seed and \verb{$treatment} with the arguments to the worker) or number indexing the list returned by \code{Piecemeal$erred()}.}
+      \item{\code{error}}{sets \code{\link[=options]{options()}} \verb{error=} option before calling the worker.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    This function ignores cluster settings bypasses the usual bookkeeping: the given configuration is run even if the result file already exists, and the results are returned and not saved.
+  }
+  \subsection{Returns}{
+    The result list, with element \verb{$output} containing the value returned by the worker.
+  }
 }
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-consolidate"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-consolidate}{}}}
-\subsection{Method \code{consolidate()}}{
-Consolidate successful run result files into a SQLite database.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$consolidate()}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$consolidate()}}{
+  Consolidate successful run result files into a SQLite database.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$consolidate()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    This method consolidates individual RDS result files into a single database to reduce inode usage. Only successful runs (where \code{OK = TRUE}) are consolidated. This function is safe to run while simulations are running and to interrupt (using \kbd{CTRL-C} or analogous) and resume, but only one consolidation may be run at the same time. Consolidated and unconsolidated results can be accessed transparently.
+  }
+  \subsection{Returns}{
+    Invisibly, the number of files consolidated.
+  }
 }
 
-\subsection{Details}{
-This method consolidates individual RDS result files into a single database to reduce inode usage. Only successful runs (where \code{OK = TRUE}) are consolidated. This function is safe to run while simulations are running and to interrupt (using \kbd{CTRL-C} or analogous) and resume, but only one consolidation may be run at the same time. Consolidated and unconsolidated results can be accessed transparently.
-}
-
-\subsection{Returns}{
-Invisibly, the number of files consolidated.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-options"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-options}{}}}
-\subsection{Method \code{options()}}{
-Set miscellaneous options.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$options(split = c(1L, 1L), error = c("auto", "save", "skip", "stop"))}\if{html}{\out{</div>}}
-}
-
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{split}}{a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.}
-
-\item{\code{error}}{how to handle worker errors:\describe{
+\subsection{\code{Piecemeal$options()}}{
+  Set miscellaneous options.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$options(split = c(1L, 1L), error = c("auto", "save", "skip", "stop"))}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{split}}{a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.}
+      \item{\code{error}}{how to handle worker errors:\describe{
 \item{\code{"save"}}{save the seed, the configuration, and the status, preventing future runs until the file is removed using \code{Piecemeal$clean()}.}
 \item{\code{"skip"}}{return the error message as a part of \code{run()}'s return value, but do not save the RDS file; the next \code{run()} will attempt to run the worker for that configuration and seed again.}
-\item{\code{"stop"}}{allow the error to propagate; can be used in conjunction with \code{Piecemeal$cluster(NULL)} and (global) \code{options(error = recover)} to debug the worker.}
+\item{\code{"stop"}}{allow the error to propagate; can be used in conjunction with \code{Piecemeal$cluster(NULL)} and (global) \code{options(error = recover)} to debug the worker, though \code{Piecemeal$debug()} method is probably more convenient.}
 \item{\code{"auto"}}{(default) as \code{"save"}, but if any of the methods that change how each configuration is run (i.e., \verb{$worker()}, \verb{$setup()}, and \verb{$export_vars()}) is called, \verb{$clean()} will be called automatically before the next \verb{$run()}.}
 }}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
-\if{html}{\out{</div>}}
-}
-}
+
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-print"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-print}{}}}
-\subsection{Method \code{print()}}{
-Print the current simulation settings, including whether there is enough information to run it.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$print(...)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$print()}}{
+  Print the current simulation settings, including whether there is enough information to run it.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$print(...)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{...}}{additional arguments, currently unused.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{...}}{additional arguments, currently unused.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-status"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-status}{}}}
-\subsection{Method \code{status()}}{
-Summarise the current status of the simulation, including the number of runs succeeded, the number of runs still to be done, the number of runs currently running, the errors encountered, and, if started, the estimated time to completion at the current rate.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$status(...)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$status()}}{
+  Summarise the current status of the simulation, including the number of runs succeeded, the number of runs still to be done, the number of runs currently running, the errors encountered, and, if started, the estimated time to completion at the current rate.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$status(...)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{...}}{additional arguments, currently passed to \code{Piecemeal$eta()}.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{...}}{additional arguments, currently passed to \code{Piecemeal$eta()}.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-eta"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-eta}{}}}
-\subsection{Method \code{eta()}}{
-Estimate the rate at which runs are being completed and how much more time is needed.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$eta(window = 3600)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$eta()}}{
+  Estimate the rate at which runs are being completed and how much more time is needed.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$eta(window = 3600)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{window}}{initial time window to use, either a \code{\link{difftime}} object or the number in seconds; defaults to 1 hour.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    The window used is actually between the last completed run and the earliest run in the \code{window} before that. This allows to take an interrupted simulation and estimate how much more time (at the most recent rate) is needed.
+  }
+  \subsection{Returns}{
+    A list with elements \code{window}, \code{recent}, \code{cost}, \code{left}, \code{rate}, and \code{eta}, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{window}}{initial time window to use, either a \code{\link{difftime}} object or the number in seconds; defaults to 1 hour.}
-}
-\if{html}{\out{</div>}}
-}
-\subsection{Details}{
-The window used is actually between the last completed run and the earliest run in the \code{window} before that. This allows to take an interrupted simulation and estimate how much more time (at the most recent rate) is needed.
-}
-
-\subsection{Returns}{
-A list with elements \code{window}, \code{recent}, \code{cost}, \code{left}, \code{rate}, and \code{eta}, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-last_OK"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-last_OK}{}}}
-\subsection{Method \code{last_OK()}}{
-Return the last time a run has finished successfully.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$last_OK()}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$last_OK()}}{
+  Return the last time a run has finished successfully.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$last_OK()}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-last_consolidated"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-last_consolidated}{}}}
-\subsection{Method \code{last_consolidated()}}{
-Return the last time the consolidated database had been updated.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$last_consolidated()}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$last_consolidated()}}{
+  Return the last time the consolidated database had been updated.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$last_consolidated()}
+    \if{html}{\out{</div>}}
+  }
 }
 
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-Piecemeal-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-Piecemeal-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{Piecemeal$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{Piecemeal$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

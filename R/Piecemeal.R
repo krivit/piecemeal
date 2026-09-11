@@ -63,6 +63,31 @@ Piecemeal <- R6Class("Piecemeal",
     .split = c(1L, 1L),
     .error = "auto",
     .toclean = FALSE,
+    .setup_env = function(cl = NULL) {
+      if(is.null(cl)) {
+        run_env <- new.env(parent = parent.env(.GlobalEnv))
+        run_env$.worker <- private$.worker
+        run_env$.outdir <- private$.outdir
+
+        eval(private$.setup, envir = run_env)
+
+        for(i in seq_along(private$.cl_vars))
+          for(name in private$.cl_vars[[i]])
+            assign(name, get(name, private$.cl_var_envs[[i]]), run_env)
+
+        run_env
+      } else {
+        .worker <- private$.worker
+        .outdir <- private$.outdir
+        clusterExport(cl, c(".worker", ".outdir"), environment())
+
+        clusterCall(cl, eval, private$.setup, envir = .GlobalEnv)
+
+        for(i in seq_along(private$.cl_vars))
+          clusterExport(cl, private$.cl_vars[[i]], private$.cl_var_envs[[i]])
+        NULL
+      }
+    },
     .done = function() {
       # Get individual .rds files
       cli_progress_message("Finding individual runs")
@@ -231,6 +256,30 @@ Piecemeal <- R6Class("Piecemeal",
       invisible(self)
     },
 
+    #' @description Test-run some treatment configurations on the local system and return their results without saving.
+    #' @param config,shuffle see Details.
+    #' @param error sets [options()] `error=` option before calling the worker.
+    #' @details The configurations to run are determined as follows:
+    #' 1. If `config` is numeric, it is treated as a list of treatment configurations to run in the same format as that of `Piecemeal$todo()`. If only passing one configuration, remember to wrap it in [list()].
+    #' 2. If `config` is a number and `shuffle == TRUE` (the default), then run `config` configurations, chosen at random from those left to do.
+    #' 3. If `config` is numeric and `shuffle == FALSE`, `config` is treated as a vector of indices from the list returned by `Piecemeal$todo()`.
+    #' @return A list containing the results of the runs, with each sublist's element `$output` containing the value returned by the worker. They are not saved.
+    test = function(config = 1, shuffle = TRUE, error = recover) {
+      private$.check_args()
+      run_env <- private$.setup_env()
+      configs <- self$todo()
+      configs <- if(is.numeric(config))
+                   configs[if(shuffle) sample.int(length(configs), config) else config]
+                 else config
+
+      o <- options(error = error)
+      on.exit(options(o))
+      map(configs, function(config) {
+        message("\n======= Running configuration ", dQuote(attr(config$treatment, "hash")), " with seed ", config$seed, " =======\n")
+        run_config(config, error = ".debug", env = run_env)
+        })
+    },
+
     #' @description Run the simulation.
     #' @param shuffle Should the treatment configurations be run in a random order (`TRUE`, the default) or in the order in which they were added (`FALSE`)?
     #' @return Invisibly, a character vector with an element for each seed and treatment configuration combination attempted, indicating its file name and status, including errors.
@@ -244,26 +293,7 @@ Piecemeal <- R6Class("Piecemeal",
         on.exit(stopCluster(cl))
       }
 
-      if(is.null(cl)) {
-        run_env <- new.env(parent = parent.env(.GlobalEnv))
-        run_env$.worker <- private$.worker
-        run_env$.outdir <- private$.outdir
-        
-        eval(private$.setup, envir = run_env)
-
-        for(i in seq_along(private$.cl_vars))
-          for(name in private$.cl_vars[[i]])
-            assign(name, get(name, private$.cl_var_envs[[i]]), run_env)
-      } else {
-        .worker <- private$.worker
-        .outdir <- private$.outdir
-        clusterExport(cl, c(".worker", ".outdir"), environment())
-
-        clusterCall(cl, eval, private$.setup, envir = .GlobalEnv)
-
-        for(i in seq_along(private$.cl_vars)) 
-          clusterExport(cl, private$.cl_vars[[i]], private$.cl_var_envs[[i]])
-      }
+      run_env <- private$.setup_env(cl) # run_env returned only when running locally.
 
       configs <- self$todo()
       message(sprintf("Starting %d runs. (%d already done.)", length(configs), done <- attr(configs, "done")))
@@ -389,15 +419,36 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description List the configurations for which the worker function failed.
-    erred = function() {
+    #' @param n return up to this many errors.
+    erred = function(n = Inf) {
       con <- db_connect(private$.outdir)
 
+      nerr <- 0L
       private$.done() |>
         map(function(fn) {
+          if (nerr >= n) return(NULL)
           o <- read_result(private$.outdir, fn, con)
-          if(o$OK) NULL else o
+          if(o$OK) NULL
+          else {
+            nerr <<- nerr + 1
+            o
+          }
         }) |>
         compact()
+    },
+
+    #' @description Debug the worker for a particular configuration.
+    #' @details This function ignores cluster settings bypasses the usual bookkeeping: the given configuration is run even if the result file already exists, and the results are returned and not saved.
+    #' @param result either a list in the result format (particularly with elements `$seed` with the random seed and `$treatment` with the arguments to the worker) or number indexing the list returned by `Piecemeal$erred()`.
+    #' @param error sets [options()] `error=` option before calling the worker.
+    #' @return The result list, with element `$output` containing the value returned by the worker.
+    debug = function(result = 1, error = recover) {
+      private$.check_args()
+      if(is.numeric(result)) result <- self$erred(n = result)[[result]]
+      run_env <- private$.setup_env()
+      o <- options(error = error)
+      on.exit(options(o))
+      run_config(result, error = ".debug", env = run_env)
     },
 
     #' @description Consolidate successful run result files into a SQLite database.
@@ -416,7 +467,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param error how to handle worker errors:\describe{
     #' \item{`"save"`}{save the seed, the configuration, and the status, preventing future runs until the file is removed using `Piecemeal$clean()`.}
     #' \item{`"skip"`}{return the error message as a part of `run()`'s return value, but do not save the RDS file; the next `run()` will attempt to run the worker for that configuration and seed again.}
-    #' \item{`"stop"`}{allow the error to propagate; can be used in conjunction with `Piecemeal$cluster(NULL)` and (global) `options(error = recover)` to debug the worker.}
+    #' \item{`"stop"`}{allow the error to propagate; can be used in conjunction with `Piecemeal$cluster(NULL)` and (global) `options(error = recover)` to debug the worker, though `Piecemeal$debug()` method is probably more convenient.}
     #' \item{`"auto"`}{(default) as `"save"`, but if any of the methods that change how each configuration is run (i.e., `$worker()`, `$setup()`, and `$export_vars()`) is called, `$clean()` will be called automatically before the next `$run()`.}
     #' }
     options = function(split = c(1L, 1L), error = c("auto", "save", "skip", "stop")) {
@@ -498,7 +549,7 @@ Piecemeal <- R6Class("Piecemeal",
         Result <- map_chr(individual_files, function(fn) {
           o <- safe_readRDS(fn)
           if(o$OK) "Done"
-          else if(is.null(o$config)) "Corrupted"
+          else if(is.null(o$fn)) "Corrupted"
           else trimws(o$output) # the error message
         }, .progress = "Checking individual results")
       }
@@ -703,72 +754,87 @@ is_locked <- function(path) {
 }
 
 # Empty result structure for missing/corrupted files
-empty_result <- list(seed = NULL, treatment = NULL, output = NULL, config = NULL, OK = FALSE)
+empty_result <- list(seed = NULL, treatment = NULL, output = NULL, fn = NULL, subdirs = NULL, OK = FALSE)
+
+# Check if a result file is in the old format, warn the user, and convert.
+convert_old_format <- function(o, fn) {
+  if("config" %in% names(o)) {
+    warning(sQuote(fn), " is in the old (0.2) result format. Future versions of ", sQuote("Piecemeal"), " may not support it.")
+    utils::modifyList(o, o$config)
+    o$config <- NULL
+  }
+  o
+}
 
 safe_readRDS <- function(file, ..., verbose = FALSE) {
   tryCatch(readRDS(file, ...),
            error = function(e) {
              if(verbose) message("Run file ", sQuote(file), " is corrupted. This should never happen.")
              empty_result
-           })
+           }) |> convert_old_format(file)
 }
 
 run_config <- function(config, error, env = NULL) {
   worker <- get(".worker", env %||% .GlobalEnv)
-  outdir <- get(".outdir", env %||% .GlobalEnv)
 
-  fn <- config$fn
-  subdirs <- config$subdirs
-  dn <- do.call(file.path, c(list(outdir), subdirs))
-  fn <- file.path(dn, fn)
+  if(error != ".debug") { # If debugging, just run the worker and return the result.
+    outdir <- get(".outdir", env %||% .GlobalEnv)
 
-  # If this treatment + seed combination has been run, move on.
-  if (file.exists(fn) || db_has_result(outdir, fn)) return(paste(fn, "SKIPPED", sep = "\n"))
+    fn <- config$fn
+    subdirs <- config$subdirs
+    dn <- do.call(file.path, c(list(outdir), subdirs))
+    fn <- file.path(dn, fn)
 
-  # Or, if it's already being run by another process, move on; otherwise, lock it.
-  #
-  # Here, the containing directory is created nonempty so that
-  # file.remove() run by consolidate_results() cannot remove it before
-  # lock() gets a chance to create a file in it. Once a lock file is
-  # in place (if it wasn't already), we can remove the placeholder
-  # subdirectory.
-  dir.create(dl <- file.path(dn, "dirlock"), recursive = TRUE, showWarnings = FALSE)
-  fnlock <- filelock::lock(paste0(fn, ".lock"), timeout = 0)
-  suppressWarnings(try(unlink(dl, recursive = TRUE), silent = TRUE))
-  if(is.null(fnlock)) return(paste(fn, "SKIPPED", sep = "\n"))
-  on.exit({
-    filelock::unlock(fnlock)
-    unlink(paste0(fn, ".lock"))
-  })
+    # If this treatment + seed combination has been run, move on.
+    if (file.exists(fn) || db_has_result(outdir, fn)) return(paste(fn, "SKIPPED", sep = "\n"))
+
+    # Or, if it's already being run by another process, move on; otherwise, lock it.
+    #
+    # Here, the containing directory is created nonempty so that
+    # file.remove() run by consolidate_results() cannot remove it before
+    # lock() gets a chance to create a file in it. Once a lock file is
+    # in place (if it wasn't already), we can remove the placeholder
+    # subdirectory.
+    dir.create(dl <- file.path(dn, "dirlock"), recursive = TRUE, showWarnings = FALSE)
+    fnlock <- filelock::lock(paste0(fn, ".lock"), timeout = 0)
+    suppressWarnings(try(unlink(dl, recursive = TRUE), silent = TRUE))
+    if(is.null(fnlock)) return(paste(fn, "SKIPPED", sep = "\n"))
+    on.exit({
+      filelock::unlock(fnlock)
+      unlink(paste0(fn, ".lock"))
+    })
+  }
 
   treatment <- config$treatment
-  config$treatment <- NULL
-  seed <- config$seed
-  config$seed <- NULL
-
   if(".seed" %in% names(formals(worker)))
-    treatment$.seed <- seed
+    treatment$.seed <- config$seed
 
-  set.seed(seed)
-  out <- if (error == "stop") do.call(worker, treatment, envir = env %||% .GlobalEnv)
-         else try(do.call(worker, treatment, envir = env %||% .GlobalEnv), silent = TRUE)
-  if(inherits(out, "try-error")) {
-    if(error == "skip") return(paste(fn, out, sep = "\n"))
-    OK <- FALSE
-  } else OK <- TRUE
-  
+  set.seed(config$seed)
+  # Results data structure = config + output + OK flag.
+  config$output <- switch(error,
+                          stop =,
+                          .debug = do.call(worker, treatment, envir = env %||% .GlobalEnv),
+                          try(do.call(worker, treatment, envir = env %||% .GlobalEnv), silent = TRUE))
 
-  # saveRDS() is not atomic, whereas file.rename() typically is. The
-  # following pattern guarantees that if the process is killed while
-  # the results are being written out, a corrupted file does not
-  # result.
-  saveRDS(list(seed = seed, treatment = treatment, output = out, config = config, OK = OK), paste0(fn, ".tmp"))
-  file.rename(paste0(fn, ".tmp"), fn)
-  if (OK) {
-    # Touch the file.
-    file.create(file.path(outdir, "last_OK"))
-    paste(fn, "OK", sep = "\n")
-  } else {
-    paste(fn, out, sep = "\n")
-  }
+  if (error != ".debug") {
+    if(inherits(config$output, "try-error")) {
+      if(error == "skip") return(paste(fn, config$output, sep = "\n"))
+      config$OK <- FALSE
+    } else config$OK <- TRUE
+
+
+    # saveRDS() is not atomic, whereas file.rename() typically is. The
+    # following pattern guarantees that if the process is killed while
+    # the results are being written out, a corrupted file does not
+    # result.
+    saveRDS(config, paste0(fn, ".tmp"))
+    file.rename(paste0(fn, ".tmp"), fn)
+    if (config$OK) {
+      # Touch the file.
+      file.create(file.path(outdir, "last_OK"))
+      paste(fn, "OK", sep = "\n")
+    } else {
+      paste(fn, config$output, sep = "\n")
+    }
+  } else config
 }

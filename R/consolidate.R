@@ -88,7 +88,7 @@ db_get_result <- function(con, filename) {
   on.exit(close(raw_con), add = TRUE)
 
   gz_con <- gzcon(raw_con)
-  readRDS(gz_con)
+  readRDS(gz_con) |> convert_old_format(filename)
 }
 
 #' List all filenames in the consolidated database
