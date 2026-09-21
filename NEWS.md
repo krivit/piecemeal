@@ -1,4 +1,38 @@
+# piecemeal 0.3.0
+
+## New features
+
+* The package now keeps track of the last successful run and the last
+  time a consolidation was performed, accessible via
+  `Piecemeal$last_OK()` and `Piecemeal$last_consolidated()`,
+  respectively.
+
+* `Piecemeal$status()` now distinguishes consolidated from
+  unconsolidated results and prints last successful completion and
+  consolidation times.
+
+* Method `Piecemeal$debug()` to run the specified erred configuration on the
+  local system.
+
+* Method `Piecemeal$test()` to (re-)run the specified configuration on
+  the local system.
+
+## Other user-visible changes
+
+* The result `.rds` file format has changed. Old simulation results
+  should still work for now.
+
+## Bug fixes
+
+* `is_locked()` would sometimes return a `list` containing `logical`
+  rather than a `logical`.
+
+* ETA calculation is now skipped if there are too few completed runs,
+  and an informative message is printed.
+
 # piecemeal 0.2.0
+
+## New features
 
 * Time-consuming interactive commands now show progress bars via
   {cli}.
@@ -13,6 +47,8 @@
   `Piecemeal$eta()`. Consolidation can take place while the simulation
   is running.
 
+## Bug fixes
+
 * Default cluster settings now allow for a longer timeout.
 
 * A file descriptor leak in {filelock} has been mitigated.
@@ -21,4 +57,4 @@
 
 # piecemeal 0.1.0
 
-* Initial CRAN submission.
+* Initial CRAN release.
