@@ -2,6 +2,15 @@
 
 ## New features
 
+* Internally, completed runs (individual result files as well as
+  consolidated ones) are now enumerated lazily via a generator rather
+  than by recursively listing every result file up front. This makes
+  it possible to display an incremental progress bar, with an ETA,
+  while the (potentially large) output directory is being scanned;
+  the estimated total is extrapolated from the number of
+  subdirectories and files encountered so far and becomes exact once
+  scanning completes.
+
 * The package now keeps track of the last successful run and the last
   time a consolidation was performed, accessible via
   `Piecemeal$last_OK()` and `Piecemeal$last_consolidated()`,

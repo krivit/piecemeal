@@ -47,7 +47,7 @@
 #' @import purrr
 #' @importFrom R6 R6Class
 #' @importFrom utils capture.output
-#' @importFrom cli cli_progress_along cli_progress_message cli_progress_done cli_inform cli_alert_info
+#' @importFrom cli cli_progress_along cli_progress_message cli_progress_done cli_progress_bar cli_progress_update cli_inform cli_alert_info
 #' @importFrom cli cli_alert_success cli_alert_warning cli_abort cli_rule cli_text cli_warn
 #' @export
 Piecemeal <- R6Class("Piecemeal",
@@ -88,27 +88,121 @@ Piecemeal <- R6Class("Piecemeal",
         NULL
       }
     },
-    .done = function() {
-      # Get individual .rds files
-      cli_progress_message("Finding individual runs")
-      files <- list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE)
-      cli_progress_done()
+    # Returns a generator (a list with elements `next_file` and
+    # `progress`) that lazily yields the paths of completed runs one
+    # at a time, instead of recursively listing (and holding in
+    # memory) every result file up front. `next_file()` returns the
+    # path to the next completed run, or `NULL` once exhausted.
+    # `progress()` returns a list with elements `found` (number of
+    # files yielded so far) and `total` (the current estimate of the
+    # total number of files, extrapolated from the number of
+    # subdirectories and files encountered so far while the
+    # filesystem is still being scanned, and exact once scanning is
+    # complete).
+    .done_gen = function() {
+      outdir <- private$.outdir
+      # A stack (not a queue) of directories and files still to be
+      # visited, so that traversal order matches a depth-first,
+      # alphabetically sorted recursive listing, as produced by
+      # `list.files(..., recursive = TRUE)`.
+      stack <- list(list(type = "dir", path = outdir))
+      dirs_discovered <- 1L
+      dirs_processed <- 0L
+      files_found <- 0L
+      fs_done <- FALSE
+      seen <- character(0)
+      db_files <- NULL
+      db_i <- 0L
 
-      # Get files from consolidated database
-      cli_progress_message("Finding consolidated runs")
-      con <- db_connect(private$.outdir)
-      if (!is.null(con)) {
-        on.exit(DBI::dbDisconnect(con))
-        # Interrupted consolidation may result in an rds file inserted
-        # into the database but not deleted, so make sure it's only
-        # listed once.
-        db_files <- db_list_filenames(con) |> setdiff(basename(files))
-        # Return full paths for consistency (use a virtual path prefix)
-        db_files <- file.path(private$.outdir, ".consolidated", db_files)
-        files <- c(files, db_files)
+      pop <- function() {
+        if(!length(stack)) return(NULL)
+        top <- stack[[length(stack)]]
+        stack[[length(stack)]] <<- NULL
+        top
       }
-      cli_progress_done()
 
+      next_file <- function() {
+        repeat {
+          if(!fs_done) {
+            item <- pop()
+            if(is.null(item)) { fs_done <<- TRUE; next }
+            if(item$type == "dir") {
+              dirs_processed <<- dirs_processed + 1L
+              entries <- list.files(item$path, full.names = TRUE)
+              if(length(entries)) {
+                isdirs <- dir.exists(entries)
+                dirs_discovered <<- dirs_discovered + sum(isdirs)
+                items <- lapply(seq_along(entries), function(i)
+                  list(type = if(isdirs[i]) "dir" else "file", path = entries[i]))
+                # Push in reverse, so that the first (alphabetically
+                # sorted) entry is the next one popped.
+                stack <<- c(stack, rev(items))
+              }
+              next
+            }
+            if(!grepl("\\.rds$", item$path)) next
+            files_found <<- files_found + 1L
+            seen[length(seen) + 1L] <<- basename(item$path)
+            return(item$path)
+          }
+
+          # The filesystem has been fully scanned; now yield results
+          # from the consolidated database, if any.
+          if(is.null(db_files)) {
+            con <- db_connect(outdir)
+            db_files <<-
+              if(is.null(con)) character(0)
+              else {
+                # Interrupted consolidation may result in an rds file
+                # inserted into the database but not deleted, so make
+                # sure it's only listed once.
+                fnames <- tryCatch(db_list_filenames(con),
+                                    finally = DBI::dbDisconnect(con))
+                # Return full paths for consistency (use a virtual
+                # path prefix).
+                file.path(outdir, ".consolidated", setdiff(fnames, seen))
+              }
+            if(length(db_files)) dirs_discovered <<- dirs_discovered + 1L
+          }
+          db_i <<- db_i + 1L
+          if(db_i > length(db_files)) return(NULL)
+          files_found <<- files_found + 1L
+          return(db_files[[db_i]])
+        }
+      }
+
+      progress <- function() {
+        total <-
+          if(fs_done) files_found + max(0L, length(db_files) - db_i)
+          else round(files_found / max(1L, dirs_processed) * dirs_discovered)
+        list(found = files_found, total = max(total, files_found))
+      }
+
+      list(next_file = next_file, progress = progress)
+    },
+    # Collect all the completed runs (individual and consolidated)
+    # into a character vector, using `.done_gen()` under the hood and
+    # displaying a progress bar with an ETA based on the (possibly
+    # extrapolated) total.
+    .done = function(progress = TRUE) {
+      gen <- private$.done_gen()
+      cap <- 64L
+      files <- character(cap)
+      n <- 0L
+      id <- if(progress) cli_progress_bar("Finding completed runs", total = NA, auto_terminate = FALSE)
+      repeat {
+        f <- gen$next_file()
+        if(is.null(f)) break
+        n <- n + 1L
+        if(n > cap) { cap <- cap*2L; length(files) <- cap }
+        files[n] <- f
+        if(progress) {
+          p <- gen$progress()
+          cli_progress_update(id = id, set = p$found, total = p$total)
+        }
+      }
+      if(progress) cli_progress_done(id = id)
+      length(files) <- n
       files
     },
     .doing = function() {
