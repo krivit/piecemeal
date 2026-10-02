@@ -61,12 +61,11 @@ f_fixed <- function(x, y) {
 sim$worker(f_fixed)
 
 test_that("All runs succeed after fixing function", {
-  restab <- capture.output(res <- sim$run(), type = "message")[4:6] |>
-    textConnection() |> read.table(header = TRUE)
+  expect_message(
+    res <- sim$run(),
+    "Run summary: OK: 8, SKIPPED: 16"
+  )
   expect_length(res, 8)
-  expect_equal(restab, data.frame(row.names = as.character(1:2),
-                                  Status = c("OK", "SKIPPED"),
-                                  Runs = c(8, 16)))
   df <- sim$result_df()
   expect_equal(nrow(df), 24)
   expect_length(sim$erred(), 0)
