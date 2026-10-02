@@ -279,7 +279,10 @@ Piecemeal <- R6Class("Piecemeal",
       o <- options(error = error)
       on.exit(options(o))
       map(configs, function(config) {
-        cli::cli_rule(left = "Running configuration {.val {attr(config$treatment, 'hash')}} with seed {.val {config$seed}}")
+        cli::cli_rule(
+          left = "Running configuration {.val {attr(config$treatment, 'hash')}}",
+          right = "seed {.val {config$seed}}"
+        )
         run_config(config, error = ".debug", env = run_env)
         })
     },
