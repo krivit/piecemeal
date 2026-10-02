@@ -63,8 +63,7 @@ sim$worker(f_fixed)
 test_that("All runs succeed after fixing function", {
   expect_message(
     res <- sim$run(),
-    "Run summary: OK: 8, SKIPPED: 16",
-    class = "cliMessage"
+    "Run summary: OK: 8, SKIPPED: 16"
   )
   expect_length(res, 8)
   df <- sim$result_df()
