@@ -128,7 +128,10 @@ Piecemeal <- R6Class("Piecemeal",
         for(i in seq_along(private$.treatments)[which]) {
           treatment <- private$.treatments[[i]]
           if(".seed" %in% names(treatment))
-            stop("In treatment configuration ", i, " argument ", sQuote(".seed"), " is reserved by ", sQuote("Piecemeal"), " if you wish to provide your own seed, use a different argument name.")
+            cli::cli_abort(c(
+              "x" = "In treatment configuration {i}, argument {.arg .seed} is reserved by {.pkg piecemeal}.",
+              "i" = "To provide your own seed, use a different argument name."
+            ))
           astart <- if(".seed" %in% anames) list("", ".seed") else list("")
 
           tryCatch(match.call(private$.worker, as.call(c(astart, treatment))),
@@ -276,7 +279,7 @@ Piecemeal <- R6Class("Piecemeal",
       o <- options(error = error)
       on.exit(options(o))
       map(configs, function(config) {
-        message("\n======= Running configuration ", dQuote(attr(config$treatment, "hash")), " with seed ", config$seed, " =======\n")
+        cli::cli_rule(left = "Running configuration {.val {attr(config$treatment, 'hash')}} with seed {.val {config$seed}}")
         run_config(config, error = ".debug", env = run_env)
         })
     },
@@ -297,7 +300,8 @@ Piecemeal <- R6Class("Piecemeal",
       run_env <- private$.setup_env(cl) # run_env returned only when running locally.
 
       configs <- self$todo()
-      message(sprintf("Starting %d runs. (%d already done.)", length(configs), done <- attr(configs, "done")))
+      done <- attr(configs, "done")
+      cli::cli_alert_info("Starting {length(configs)} runs ({done} already done).")
 
       if(shuffle) configs <- configs[sample.int(length(configs))]
 
@@ -311,7 +315,7 @@ Piecemeal <- R6Class("Piecemeal",
         rep("SKIPPED", done)
       ) |>
         table() |> as.data.frame() |> setNames(c("Status", "Runs")) |>
-        capture.output() |> paste(collapse = "\n") |> message()
+        capture.output() |> paste(collapse = "\n") |> cli::cli_inform()
 
       invisible(if(length(statuses)) statuses else character(0))
     },
@@ -397,7 +401,8 @@ Piecemeal <- R6Class("Piecemeal",
 
       l <- self$result_list(trt_tf = trt_tf, out_tf = out_tf, ...)
       OK <- map_lgl(l, "OK")
-      if(!all(OK)) message(sprintf("%d/%d runs had returned an error.", sum(!OK), length(OK)))
+      if(!all(OK))
+        cli::cli_alert_warning("{sum(!OK)}/{length(OK)} runs returned an error.")
       l <- l[OK]
 
       map(l, function(o) {
@@ -414,9 +419,13 @@ Piecemeal <- R6Class("Piecemeal",
     reset = function(confirm = interactive()) {
       done <- length(private$.done())
       if(done && confirm){
-        ans <- readline(paste0('This will delete ', done, ' result files and any lock files from ', sQuote(private$.outdir), '. Are you sure? ("yes" to confirm, anything else to cancel) '))
+        cli::cli_alert_warning(
+          "This will delete {done} result files and any lock files from {.path {private$.outdir}}."
+        )
+        cli::cli_text("Are you sure? Type {.val yes} to confirm; anything else cancels.")
+        ans <- readline("Confirmation: ")
         if(ans != "yes"){
-          message("Cancelled.")
+          cli::cli_alert_info("Cancelled.")
           invisible(self)
         }
       }
@@ -432,9 +441,9 @@ Piecemeal <- R6Class("Piecemeal",
       del <- done |> map_lgl(\(fn) which(safe_readRDS(fn)), .progress = "Loading and filtering")
       private$.toclean <- FALSE
       if(any(del)){
-        message("Deleting...")
+        cli::cli_alert_info("Deleting...")
         unlink(done[del])
-        message(sprintf("%d failed runs deleted.", sum(del)))
+        cli::cli_alert_success("{sum(del)} failed runs deleted.")
       }
       invisible(self)
     },
@@ -478,7 +487,7 @@ Piecemeal <- R6Class("Piecemeal",
     consolidate = function() {
       count <- consolidate_results(private$.outdir)
       if (count > 0) {
-        message(sprintf("Consolidation complete: %d files consolidated.", count))
+        cli::cli_alert_success("{count} files consolidated.")
       }
       invisible(count)
     },
@@ -704,7 +713,7 @@ format.piecemeal_rate <- function(x, ...) {
 #' @export
 print.Piecemeal_eta <- function(x, ...) {
   if (x$recent < 2L) {
-    message("Too few runs completed: no ETA calculation possible.")
+    cli::cli_alert_info("Too few runs completed: no ETA calculation possible.")
     return(invisible(x))
   }
 
@@ -782,7 +791,9 @@ empty_result <- list(seed = NULL, treatment = NULL, output = NULL, fn = NULL, su
 # Check if a result file is in the old format, warn the user, and convert.
 convert_old_format <- function(o, fn) {
   if("config" %in% names(o)) {
-    warning(sQuote(fn), " is in the old (0.2) result format. Future versions of ", sQuote("Piecemeal"), " may not support it.")
+    cli::cli_warn(
+      "{.file {fn}} is in the old (0.2) result format. Future versions of {.pkg piecemeal} may not support it."
+    )
     utils::modifyList(o, o$config)
     o$config <- NULL
   }
@@ -792,7 +803,8 @@ convert_old_format <- function(o, fn) {
 safe_readRDS <- function(file, ..., verbose = FALSE) {
   tryCatch(readRDS(file, ...),
            error = function(e) {
-             if(verbose) message("Run file ", sQuote(file), " is corrupted. This should never happen.")
+             if(verbose)
+               cli::cli_alert_warning("Run file {.file {file}} is corrupted. This should never happen.")
              empty_result
            }) |> convert_old_format(file)
 }

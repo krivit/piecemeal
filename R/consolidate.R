@@ -135,7 +135,7 @@ consolidate_results <- function(outdir) {
 
   lock <- filelock::lock(lock_path, timeout = 0)
   if (is.null(lock)) {
-    message("Another process is consolidating. Skipping.")
+    cli::cli_alert_info("Another process is consolidating. Skipping.")
     return(0)
   }
 
