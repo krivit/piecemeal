@@ -18,6 +18,8 @@ importFrom(DBI,
 importFrom(R6,R6Class)
 importFrom(RSQLite,SQLite)
 importFrom(cli,
+  cli_alert_info,
+  cli_inform,
   cli_progress_along,
   cli_progress_done,
   cli_progress_message

@@ -2,7 +2,12 @@
 
 # Piecemeal is an R6 class, so we access its methods using $.
 # Initialise, with the output directory.
-sim <- piecemeal::init(file.path(tempdir(), "piecemeal_demo"))
+
+# Note: We want the results of running this script to survive the R
+# session, so we infer the system temporary directory rather than use
+# tempdir(), which will be deleted at the end of the session.
+sys_tempdir <- dirname(tempdir())
+sim <- piecemeal::init(file.path(sys_tempdir, "piecemeal_demo"))
 
 # Set up a simulation:
 sim$
@@ -21,6 +26,8 @@ sim$
   # on a cluster with two nodes.
   cluster(2)
 
-# Only print simulation status if using interactively or run from top
-# level (not source()).
-if (interactive() || sys.nframe() == 0) print(sim$status())
+# Only consolidate if run from top level (not source()).
+if (sys.nframe() == 0) print(sim$consolidate())
+
+# Only print simulation status if run from top level (not source()).
+if (sys.nframe() == 0) print(sim$status())

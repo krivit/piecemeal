@@ -1,14 +1,12 @@
 #' The `Piecemeal` [`R6`] Class
 #'
-#' @description This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See [the vignette `vignette("piecemeal")`](../doc/piecemeal.html) for long worked example.
+#' @description This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See [the vignette `vignette("piecemeal")`](../doc/piecemeal.html) for a long worked example. Examples of \R scripts suitable for non-interactive use on a computing cluster can be found in your package installation's \file{examples} directory, which can be located by running `system.file("examples", package = "piecemeal")`. (This appears to currently be \file{\Sexpr[stage=render]{system.file("examples", package = "piecemeal")}}.)
 #'
 #' @details A chain of `R6` method calls is used to specify the setup and the worker functions, the treatment configurations to be passed to the worker, and parallelism and other simulation settings. Then, when `$run()` is called, the cluster is started, worker nodes are initialised, and every combination of random seed and treatment configuration is passed to [clusterApplyLB()] (if parallel processing is enabled).
 #'
 #' On the worker nodes, the worker function is not called directly; rather, care is taken to make sure that the specified configuration and seed is not already being worked on. This makes it safe to, e.g., queue multiple jobs for the same simulation. If the configuration is available, `set.seed()` is called with the seed and then the worker function is run.
 #'
 #' Errors in the worker function are caught and error messages saved and returned.
-#'
-#' @note If no treatment is specified, the function is called with no arguments (or just `.seed`).
 #' 
 #' @examples
 #' # Initialise, with the output directory.
@@ -49,6 +47,7 @@
 #' @import purrr
 #' @importFrom R6 R6Class
 #' @importFrom utils capture.output
+#' @importFrom cli cli_progress_along cli_progress_message cli_progress_done cli_inform cli_alert_info
 #' @export
 Piecemeal <- R6Class("Piecemeal",
   private = list(
@@ -214,6 +213,8 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description Specify the function to be run for each treatment configuration; it will be run in the global environment.
     #' @param fun a function whose arguments are specified by `$treatments()` and `$factorial()`; if it has `.seed` as a named argument, the seed will be passed as well.
+    #' @details If no treatment is specified, the function is called with no arguments (or just `.seed`).
+
     worker = function(fun) {
       if(private$.error == "auto") private$.toclean <- TRUE
       private$.worker <- fun
@@ -222,7 +223,7 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description Specify a list of treatment configurations to be run.
     #' @param l a list, typically of lists of arguments to be passed to the function specified by `worker`; it is recommended that these be as compact as possible, since they are [`serialize`]d and sent to the worker node for every combination of treatment configuration and random seed.
-    #' @param .add whether the new treatment configurations should be added to the current list (if `TRUE`, the default) or replace it (if `FALSE`.
+    #' @param .add whether the new treatment configurations should be added to the current list (if `TRUE`, the default) or replace it (if `FALSE`).
     treatments = function(l, .add = TRUE) {
       l <- map(l, add_hash)
       if(!.add) private$.treatments <- list()
@@ -260,7 +261,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param config,shuffle see Details.
     #' @param error sets [options()] `error=` option before calling the worker.
     #' @details The configurations to run are determined as follows:
-    #' 1. If `config` is numeric, it is treated as a list of treatment configurations to run in the same format as that of `Piecemeal$todo()`. If only passing one configuration, remember to wrap it in [list()].
+    #' 1. If `config` is numeric, it is treated as indexing a list of treatment configurations to run in the same format as that of `Piecemeal$todo()`. If only passing one configuration, remember to wrap it in [list()].
     #' 2. If `config` is a number and `shuffle == TRUE` (the default), then run `config` configurations, chosen at random from those left to do.
     #' 3. If `config` is numeric and `shuffle == FALSE`, `config` is treated as a vector of indices from the list returned by `Piecemeal$todo()`.
     #' @return A list containing the results of the runs, with each sublist's element `$output` containing the value returned by the worker. They are not saved.
@@ -313,6 +314,26 @@ Piecemeal <- R6Class("Piecemeal",
         capture.output() |> paste(collapse = "\n") |> message()
 
       invisible(if(length(statuses)) statuses else character(0))
+    },
+
+    #' @description Run the simulation if in a non-interactive session and at top level (that is, not [source()]d); otherwise print a message and do nothing.
+    #' @param ... arguments passed to `Piecemeal$run()`.
+    #' @param call_depth how many call frames deep is the `autorun()` call allowed to be? Set to `+Inf` or a large number to disable the check.
+    #' @details This method can be used in place of `Piecemeal$run()` to allow the same \file{.R} file to be run in a batch job to run the simulation or in an interactive session or from another script to facilitate monitoring, debugging, consolidation, and exporting results. By default, its behaviour is based on [base::interactive()] and [base::sys.nframe()], but it can be overridden by setting `options(piecemeal.autorun = TRUE/FALSE)` to force it to always run (if `TRUE`) never run (if `FALSE`). Setting to `NA` or unsetting reverts to the default behaviour. See the package installation's \file{examples} directory for usage examples.
+    autorun = function(..., call_depth = 0L) {
+      piecemeal.autorun <- getOption("piecemeal.autorun", NA)
+
+      if (is.na(piecemeal.autorun %||% NA)) {
+        if (!interactive() &&
+            sys.nframe() <= call_depth + 1L) # +1 for $autorun() itself.
+          self$run(...)
+        else
+          cli_inform(c("!" = "Interactive session or indirect call detected: {.code Piecemeal$autorun()} not starting.",
+                       "i" = "To start unconditionally, use {.code Piecemeal$run()} or {.code options(piecemeal.autorun = TRUE)}."))
+      } else if(piecemeal.autorun) {
+        cli_inform(c("i" = "{.code Piecemeal$autorun()} forced by {.code options(piecemeal.autorun = TRUE)}."))
+        self$run(...)
+      } else cli_inform(c("i" = "{.code Piecemeal$autorun()} suppressed by {.code options(piecemeal.autorun = FALSE)}."))
     },
 
     #' @description List the configurations still to be run.
@@ -405,7 +426,7 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description Delete the result files for which the worker function produced an error and/or which were somehow corrupted, or based on some other predicate.
     #' @param which a function of a result list (see `Piecemeal$result_list()`) returning `TRUE` if the result file is to be deleted and `FALSE` otherwise.
-    #' @note If `Piecemeal$options(error = "auto")` (the default) is set, changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run `clean()` before the next run.
+    #' @details If `Piecemeal$options(error = "auto")` (the default) is set, changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run `clean()` before the next run.
     clean = function(which = function(res) !res$OK) {
       done <- private$.done()
       del <- done |> map_lgl(\(fn) which(safe_readRDS(fn)), .progress = "Loading and filtering")
@@ -466,9 +487,9 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param split a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.
     #' @param error how to handle worker errors:\describe{
     #' \item{`"save"`}{save the seed, the configuration, and the status, preventing future runs until the file is removed using `Piecemeal$clean()`.}
-    #' \item{`"skip"`}{return the error message as a part of `run()`'s return value, but do not save the RDS file; the next `run()` will attempt to run the worker for that configuration and seed again.}
+    #' \item{`"skip"`}{return the error message as a part of `Piecemeal$run()`'s return value, but do not save the RDS file; the next `Piecemeal$run()` will attempt to run the worker for that configuration and seed again.}
     #' \item{`"stop"`}{allow the error to propagate; can be used in conjunction with `Piecemeal$cluster(NULL)` and (global) `options(error = recover)` to debug the worker, though `Piecemeal$debug()` method is probably more convenient.}
-    #' \item{`"auto"`}{(default) as `"save"`, but if any of the methods that change how each configuration is run (i.e., `$worker()`, `$setup()`, and `$export_vars()`) is called, `$clean()` will be called automatically before the next `$run()`.}
+    #' \item{`"auto"`}{(default) as `"save"`, but if any of the methods that change how each configuration is run (i.e., `Piecemeal$worker()`, `Piecemeal$setup()`, and `Piecemeal$export_vars()`) is called, `Piecemeal$clean()` will be called automatically before the next `$run()`.}
     #' }
     options = function(split = c(1L, 1L), error = c("auto", "save", "skip", "stop")) {
       if(!missing(split)) private$.split <- rep_len(split, 2L)
@@ -527,6 +548,7 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description Summarise the current status of the simulation, including the number of runs succeeded, the number of runs still to be done, the number of runs currently running, the errors encountered, and, if started, the estimated time to completion at the current rate.
     #' @param ... additional arguments, currently passed to `Piecemeal$eta()`.
+    #' @return An object of class `Piecemeal_status` containing a frequency [`table`] summarising simulation outcomes including frequencies of different error messages, attribute `"eta"` with a `Piecemeal_eta` as well as a number of other attributes useful for printing the simulation status.
     status = function(...) {
       # Get all done files
       done <- private$.done()
@@ -579,8 +601,9 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Estimate the rate at which runs are being completed and how much more time is needed.
     #' @param window initial time window to use, either a [`difftime`] object or the number in seconds; defaults to 1 hour.
     #' @details The window used is actually between the last completed run and the earliest run in the `window` before that. This allows to take an interrupted simulation and estimate how much more time (at the most recent rate) is needed.
-    #' @note The estimation method is a simple ratio, so it may be biased under some circumstances. Also, it does not check if the runs have been completed successfully.
-    #' @return A list with elements `window`, `recent`, `cost`, `left`, `rate`, and `eta`, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
+    #'
+    #' The estimation method is a simple ratio, so it may be biased under some circumstances. Also, it does not check if the runs have been completed successfully.
+    #' @return An object of class `Piecemeal_eta` containing a list with elements `window`, `recent`, `cost`, `left`, `rate`, and `eta`, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
     eta = function(window = 3600) {
       private$.eta(window, private$.done(), private$.doing())
     },

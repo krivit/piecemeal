@@ -1,6 +1,5 @@
 #' @importFrom DBI dbConnect dbDisconnect dbExecute dbGetQuery dbExistsTable
 #' @importFrom RSQLite SQLite
-#' @importFrom cli cli_progress_along cli_progress_message cli_progress_done
 #' @keywords internal
 #' @noRd
 NULL
