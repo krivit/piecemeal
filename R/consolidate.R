@@ -135,7 +135,7 @@ consolidate_results <- function(outdir) {
 
   lock <- filelock::lock(lock_path, timeout = 0)
   if (is.null(lock)) {
-    cli::cli_alert_info("Another process is consolidating. Skipping.")
+    cli_alert_info("Another process is consolidating. Skipping.")
     return(0)
   }
 
@@ -158,7 +158,7 @@ consolidate_results <- function(outdir) {
   # Note: Future optimization could batch multiple inserts in a single transaction
   # for improved performance when consolidating many files
   
-  for (i in cli::cli_progress_along(files_to_consolidate, "Consolidating files")) {
+  for (i in cli_progress_along(files_to_consolidate, "Consolidating files")) {
     file_path <- files_to_consolidate[i]
     # Only consolidate if it's a successful run
     if (safe_readRDS(file_path)$OK) {

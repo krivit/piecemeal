@@ -18,11 +18,17 @@ importFrom(DBI,
 importFrom(R6,R6Class)
 importFrom(RSQLite,SQLite)
 importFrom(cli,
+  cli_abort,
   cli_alert_info,
+  cli_alert_success,
+  cli_alert_warning,
   cli_inform,
   cli_progress_along,
   cli_progress_done,
-  cli_progress_message
+  cli_progress_message,
+  cli_rule,
+  cli_text,
+  cli_warn
 )
 importFrom(rlang,hash)
 importFrom(utils,capture.output)
