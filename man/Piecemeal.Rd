@@ -4,7 +4,7 @@
 \alias{Piecemeal}
 \title{The \code{Piecemeal} \code{\link[R6:R6]{R6}} Class}
 \description{
-This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See \href{../doc/piecemeal.html}{the vignette \code{vignette("piecemeal")}} for long worked example.
+This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See \href{../doc/piecemeal.html}{the vignette \code{vignette("piecemeal")}} for a long worked example. Examples of \R scripts suitable for non-interactive use on a computing cluster can be found in your package installation's \file{examples} directory, which can be located by running \code{system.file("examples", package = "piecemeal")}. (This appears to currently be \file{\Sexpr[stage=render]{system.file("examples", package = "piecemeal")}}.)
 }
 \details{
 A chain of \code{R6} method calls is used to specify the setup and the worker functions, the treatment configurations to be passed to the worker, and parallelism and other simulation settings. Then, when \verb{$run()} is called, the cluster is started, worker nodes are initialised, and every combination of random seed and treatment configuration is passed to \code{\link[=clusterApplyLB]{clusterApplyLB()}} (if parallel processing is enabled).
@@ -12,13 +12,6 @@ A chain of \code{R6} method calls is used to specify the setup and the worker fu
 On the worker nodes, the worker function is not called directly; rather, care is taken to make sure that the specified configuration and seed is not already being worked on. This makes it safe to, e.g., queue multiple jobs for the same simulation. If the configuration is available, \code{set.seed()} is called with the seed and then the worker function is run.
 
 Errors in the worker function are caught and error messages saved and returned.
-}
-\note{
-If no treatment is specified, the function is called with no arguments (or just \code{.seed}).
-
-If \code{Piecemeal$options(error = "auto")} (the default) is set, changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run \code{clean()} before the next run.
-
-The estimation method is a simple ratio, so it may be biased under some circumstances. Also, it does not check if the runs have been completed successfully.
 }
 \examples{
 # Initialise, with the output directory.
@@ -69,6 +62,7 @@ sim$result_df()
     \item \href{#method-Piecemeal-seeds}{\code{Piecemeal$seeds()}}
     \item \href{#method-Piecemeal-test}{\code{Piecemeal$test()}}
     \item \href{#method-Piecemeal-run}{\code{Piecemeal$run()}}
+    \item \href{#method-Piecemeal-autorun}{\code{Piecemeal$autorun()}}
     \item \href{#method-Piecemeal-todo}{\code{Piecemeal$todo()}}
     \item \href{#method-Piecemeal-result_list}{\code{Piecemeal$result_list()}}
     \item \href{#method-Piecemeal-result_df}{\code{Piecemeal$result_df()}}
@@ -184,6 +178,9 @@ sim$result_df()
     }
     \if{html}{\out{</div>}}
   }
+  \subsection{Details}{
+    If no treatment is specified, the function is called with no arguments (or just \code{.seed}).
+  }
 }
 
 \if{html}{\out{<hr>}}
@@ -200,7 +197,7 @@ sim$result_df()
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{l}}{a list, typically of lists of arguments to be passed to the function specified by \code{worker}; it is recommended that these be as compact as possible, since they are \code{\link{serialize}}d and sent to the worker node for every combination of treatment configuration and random seed.}
-      \item{\code{.add}}{whether the new treatment configurations should be added to the current list (if \code{TRUE}, the default) or replace it (if \code{FALSE}.}
+      \item{\code{.add}}{whether the new treatment configurations should be added to the current list (if \code{TRUE}, the default) or replace it (if \code{FALSE}).}
     }
     \if{html}{\out{</div>}}
   }
@@ -286,7 +283,7 @@ sim$result_df()
   \subsection{Details}{
     The configurations to run are determined as follows:
 \enumerate{
-\item If \code{config} is numeric, it is treated as a list of treatment configurations to run in the same format as that of \code{Piecemeal$todo()}. If only passing one configuration, remember to wrap it in \code{\link[=list]{list()}}.
+\item If \code{config} is numeric, it is treated as indexing a list of treatment configurations to run in the same format as that of \code{Piecemeal$todo()}. If only passing one configuration, remember to wrap it in \code{\link[=list]{list()}}.
 \item If \code{config} is a number and \code{shuffle == TRUE} (the default), then run \code{config} configurations, chosen at random from those left to do.
 \item If \code{config} is numeric and \code{shuffle == FALSE}, \code{config} is treated as a vector of indices from the list returned by \code{Piecemeal$todo()}.
 }
@@ -315,6 +312,29 @@ sim$result_df()
   }
   \subsection{Returns}{
     Invisibly, a character vector with an element for each seed and treatment configuration combination attempted, indicating its file name and status, including errors.
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-autorun"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-autorun}{}}}
+\subsection{\code{Piecemeal$autorun()}}{
+  Run the simulation if in a non-interactive session and at top level (that is, not \code{\link[=source]{source()}}d); otherwise print a message and do nothing.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$autorun(..., call_depth = 0L)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{...}}{arguments passed to \code{Piecemeal$run()}.}
+      \item{\code{call_depth}}{how many call frames deep is the \code{autorun()} call allowed to be? Set to \code{+Inf} or a large number to disable the check.}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    This method can be used in place of \code{Piecemeal$run()} to allow the same \file{.R} file to be run in a batch job to run the simulation or in an interactive session or from another script to facilitate monitoring, debugging, consolidation, and exporting results. By default, its behaviour is based on \code{\link[base:interactive]{base::interactive()}} and \code{\link[base:sys.nframe]{base::sys.nframe()}}, but it can be overridden by setting \code{options(piecemeal.autorun = TRUE/FALSE)} to force it to always run (if \code{TRUE}) never run (if \code{FALSE}). Setting to \code{NA} or unsetting reverts to the default behaviour. See the package installation's \file{examples} directory for usage examples.
   }
 }
 
@@ -428,6 +448,9 @@ Runs that erred are filtered out.
     }
     \if{html}{\out{</div>}}
   }
+  \subsection{Details}{
+    If \code{Piecemeal$options(error = "auto")} (the default) is set, changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run \code{clean()} before the next run.
+  }
 }
 
 \if{html}{\out{<hr>}}
@@ -509,9 +532,9 @@ Runs that erred are filtered out.
       \item{\code{split}}{a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.}
       \item{\code{error}}{how to handle worker errors:\describe{
 \item{\code{"save"}}{save the seed, the configuration, and the status, preventing future runs until the file is removed using \code{Piecemeal$clean()}.}
-\item{\code{"skip"}}{return the error message as a part of \code{run()}'s return value, but do not save the RDS file; the next \code{run()} will attempt to run the worker for that configuration and seed again.}
+\item{\code{"skip"}}{return the error message as a part of \code{Piecemeal$run()}'s return value, but do not save the RDS file; the next \code{Piecemeal$run()} will attempt to run the worker for that configuration and seed again.}
 \item{\code{"stop"}}{allow the error to propagate; can be used in conjunction with \code{Piecemeal$cluster(NULL)} and (global) \code{options(error = recover)} to debug the worker, though \code{Piecemeal$debug()} method is probably more convenient.}
-\item{\code{"auto"}}{(default) as \code{"save"}, but if any of the methods that change how each configuration is run (i.e., \verb{$worker()}, \verb{$setup()}, and \verb{$export_vars()}) is called, \verb{$clean()} will be called automatically before the next \verb{$run()}.}
+\item{\code{"auto"}}{(default) as \code{"save"}, but if any of the methods that change how each configuration is run (i.e., \code{Piecemeal$worker()}, \code{Piecemeal$setup()}, and \code{Piecemeal$export_vars()}) is called, \code{Piecemeal$clean()} will be called automatically before the next \verb{$run()}.}
 }}
     }
     \if{html}{\out{</div>}}
@@ -554,6 +577,9 @@ Runs that erred are filtered out.
     }
     \if{html}{\out{</div>}}
   }
+  \subsection{Returns}{
+    An object of class \code{Piecemeal_status} containing a frequency \code{\link{table}} summarising simulation outcomes including frequencies of different error messages, attribute \code{"eta"} with a \code{Piecemeal_eta} as well as a number of other attributes useful for printing the simulation status.
+  }
 }
 
 \if{html}{\out{<hr>}}
@@ -575,9 +601,11 @@ Runs that erred are filtered out.
   }
   \subsection{Details}{
     The window used is actually between the last completed run and the earliest run in the \code{window} before that. This allows to take an interrupted simulation and estimate how much more time (at the most recent rate) is needed.
+
+The estimation method is a simple ratio, so it may be biased under some circumstances. Also, it does not check if the runs have been completed successfully.
   }
   \subsection{Returns}{
-    A list with elements \code{window}, \code{recent}, \code{cost}, \code{left}, \code{rate}, and \code{eta}, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
+    An object of class \code{Piecemeal_eta} containing a list with elements \code{window}, \code{recent}, \code{cost}, \code{left}, \code{rate}, and \code{eta}, containing, respectively, the time window, the number of runs completed in this time, the average time per completion, the estimated time left (all in seconds), the corresponding rate (in Hertz), and the expected time of completion.
   }
 }
 
