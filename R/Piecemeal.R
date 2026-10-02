@@ -314,12 +314,16 @@ Piecemeal <- R6Class("Piecemeal",
         else clusterApplyLB(cl, configs, run_config, error = private$.error)
       )
 
-      c(
+      status_counts <- c(
         if(length(statuses)) statuses |> strsplit("\n", fixed = TRUE) |> map_chr(2L),
         rep("SKIPPED", done)
       ) |>
-        table() |> as.data.frame() |> setNames(c("Status", "Runs")) |>
-        capture.output() |> paste(collapse = "\n") |> cli_inform()
+        table()
+      summary <- if(length(status_counts))
+        paste(names(status_counts), as.integer(status_counts),
+              sep = ": ", collapse = ", ")
+      else "No runs."
+      cli_inform("Run summary: {summary}")
 
       invisible(if(length(statuses)) statuses else character(0))
     },
