@@ -64,7 +64,7 @@ walker <- function(path, file_fifo_path, tot_fifo_path = NULL) {
   }
 }
 
-walk_files_and_db <- function(path, total = FALSE) {
+walk_files <- function(path, total = FALSE) {
   file_fifo_path <- tempfile("piecemeal_file_fifo_")
   file_dest <- fifo(file_fifo_path, "w+", blocking = TRUE)
 
@@ -74,10 +74,11 @@ walk_files_and_db <- function(path, total = FALSE) {
   } else est_fifo_path <- NULL
 
   walker_job <- parallel::mcparallel(walker(path, file_fifo_path, est_fifo_path))
-
-  con <- db_connect(path)
+  done <- FALSE
 
   cleanup <- function() {
+    if (done) return()
+    done <<- TRUE
     close(file_dest)
     unlink(file_fifo_path)
     if (total) {
@@ -86,50 +87,96 @@ walk_files_and_db <- function(path, total = FALSE) {
     }
     tools::pskill(walker_job$pid)
     mccollect(walker_job)
-    if (!is.null(con)) DBI::dbDisconnect(con)
   }
 
-  n_read <- 0L
+  update_length <- function() {
+    if (length(total_files_read <- readLines(est_dest)))
+      total_files <<- as.numeric(tail(total_files_read, 1L))
+  }
+
+  pos <- 0L
   total_files <- NA
 
-  if (!is.null(con)) {
-    seen <- fastmap::fastmap()
-    db_files <- if (total) DBI::dbGetQuery(con, "SELECT count(*) FROM results")[[1]] else NA
-
-    dbres <- DBI::dbSendQuery(con, "SELECT filename FROM results")
-  } else {
-    seen <- NULL
-    db_files <- 0L
-  }
-
-  list(
-    next_file = function() {
-      if (!is.null(con) && !dbHasCompleted(dbres)) {
-        dbfn <- DBI::dbFetch(dbres, 1L)$filename
-        seen$set(dbfn, NULL)
-        n_read <<- n_read + 1L
-        return(file.path(path, ".consolidated", dbfn))
-      }
-
-      fn <- readLines(file_dest, 1L)
-      if (fn == "DONE") {
-        cleanup()
-        return(NULL)
-      } else if (endsWith(fn, ".rds")) {
-        n_read <<- n_read + 1L
-        return(fn)
-      }
-    },
-    pos = function() {
-      n_read
-    },
-    length = function() {
-      if (length(total_files_read <- readLines(est_dest)))
-        total_files <<- as.numeric(tail(total_files_read, 1L))
-      total_files + db_files
-    },
-    close = function() {
+  function(get = c("next", "position", "length"), close = FALSE) {
+    if (close) {
       cleanup()
+      coro::exhausted()
+    } else {
+      get <- match.arg(get)
+
+      switch(get,
+             "next" =
+               if (done) coro::exhausted()
+               else {
+                 update_length() # Non-blocking FIFO, should be flushed as often as possible.
+                 fn <- readLines(file_dest, 1L)
+                 if (fn == "DONE") {
+                   cleanup()
+                   coro::exhausted()
+                 } else if (endsWith(fn, ".rds")) {
+                   pos <<- pos + 1L
+                   fn
+                 }
+               },
+
+             "position" = {
+               update_length()
+               pos
+             },
+
+             "length" = {
+               update_length()
+               total_files
+             })
     }
-  )
+  }
+}
+
+walk_db <- function(path, total = FALSE) {
+  if (is.null(con <- db_connect(path))) {
+    function(get = c("next", "position", "length"), close = FALSE) {
+      get <- match.arg(get)
+
+      switch(get,
+             "next" = coro::exhausted(),
+             position =,
+             length = 0L)
+    }} else {
+       done <- FALSE
+       cleanup <- function() {
+         if (done) return()
+         done <<- TRUE
+         DBI::dbDisconnect(con)
+       }
+
+       total_files <- if (total) DBI::dbGetQuery(con, "SELECT count(*) FROM results")[[1]] else NA
+
+       pos <- 0L
+       dbres <- DBI::dbSendQuery(con, "SELECT filename FROM results")
+
+       function(get = c("next", "position", "length"), close = FALSE) {
+         if (close) {
+           cleanup()
+           coro::exhausted()
+         } else {
+           get <- match.arg(get)
+
+           switch(get,
+                  "next" =
+                    if (done || dbHasCompleted(dbres)) coro::exhausted()
+                    else {
+                      pos <<- pos + 1L
+                      DBI::dbFetch(dbres, 1L)$filename
+                    },
+
+                  "position" = {
+                    pos
+                  },
+
+                  "length" = {
+                    total_files
+                  })
+         }
+       }
+     }
 }
