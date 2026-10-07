@@ -449,7 +449,7 @@ Runs that erred are filtered out.
     \if{html}{\out{</div>}}
   }
   \subsection{Details}{
-    If \code{Piecemeal$options(error = "auto")} (the default) is set, changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run \code{clean()} before the next run.
+    If \code{Piecemeal$options(error = "auto")} (the default) is set, reinitialising the \code{Piecemeal} object or changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run \code{clean()} at the start of the next run.
   }
 }
 
@@ -529,12 +529,12 @@ Runs that erred are filtered out.
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{split}}{a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.}
+      \item{\code{split}}{a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting by configuration and the second for splitting by seed; this can improve performance on some file systems.}
       \item{\code{error}}{how to handle worker errors:\describe{
 \item{\code{"save"}}{save the seed, the configuration, and the status, preventing future runs until the file is removed using \code{Piecemeal$clean()}.}
 \item{\code{"skip"}}{return the error message as a part of \code{Piecemeal$run()}'s return value, but do not save the RDS file; the next \code{Piecemeal$run()} will attempt to run the worker for that configuration and seed again.}
 \item{\code{"stop"}}{allow the error to propagate; can be used in conjunction with \code{Piecemeal$cluster(NULL)} and (global) \code{options(error = recover)} to debug the worker, though \code{Piecemeal$debug()} method is probably more convenient.}
-\item{\code{"auto"}}{(default) as \code{"save"}, but if any of the methods that change how each configuration is run (i.e., \code{Piecemeal$worker()}, \code{Piecemeal$setup()}, and \code{Piecemeal$export_vars()}) is called, \code{Piecemeal$clean()} will be called automatically before the next \verb{$run()}.}
+\item{\code{"auto"}}{(default) as \code{"save"}, but if the \code{Piecemeal} is reinitialised or any of the methods that change how each configuration is run (i.e., \code{Piecemeal$worker()}, \code{Piecemeal$setup()}, and \code{Piecemeal$export_vars()}) is called, \code{Piecemeal$clean()} will be called automatically at the start of the next \code{Piecemeal$run()}.}
 }}
     }
     \if{html}{\out{</div>}}

@@ -62,7 +62,7 @@ Piecemeal <- R6Class("Piecemeal",
     .cl_var_envs = list(),
     .split = c(1L, 1L),
     .error = "auto",
-    .toclean = FALSE,
+    .toclean = TRUE,
     .setup_env = function(cl = NULL) {
       if(is.null(cl)) {
         run_env <- new.env(parent = parent.env(.GlobalEnv))
@@ -196,7 +196,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param envir the environment on the manager node from which to take the variables; defaults to the current environment.
     #' @param .add whether the new variables should be added to the current list (if `TRUE`, the default) or replace it (if `FALSE`).
     export_vars = function(varlist, envir = parent.frame(), .add = TRUE) {
-      if(private$.error == "auto") private$.toclean <- TRUE
+      private$.toclean <- TRUE
       if(!.add) private$.cl_vars <- private$.cl_var_envs <- list()
       if(length(eid <- which(map_lgl(private$.cl_var_envs, identical, envir))) == 0L) {
         eid <- length(private$.cl_var_envs <- c(private$.cl_var_envs, list(envir)))
@@ -209,7 +209,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description Specify code to be run on each worker node at the start of the simulation; if running locally, it will be evaluated in the global environment.
     #' @param expr an expression; if passed, replaces the previous expression; if empty, resets it to nothing.
     setup = function(expr = {}) {
-      if(private$.error == "auto") private$.toclean <- TRUE
+      private$.toclean <- TRUE
       private$.setup <- substitute(expr)
       invisible(self)
     },
@@ -219,7 +219,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @details If no treatment is specified, the function is called with no arguments (or just `.seed`).
 
     worker = function(fun) {
-      if(private$.error == "auto") private$.toclean <- TRUE
+      private$.toclean <- TRUE
       private$.worker <- fun
       invisible(self)
     },
@@ -291,7 +291,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param shuffle Should the treatment configurations be run in a random order (`TRUE`, the default) or in the order in which they were added (`FALSE`)?
     #' @return Invisibly, a character vector with an element for each seed and treatment configuration combination attempted, indicating its file name and status, including errors.
     run = function(shuffle = TRUE) {
-      if(private$.toclean) self$clean()
+      if(private$.error == "auto" && private$.toclean) self$clean()
       private$.check_args()
 
       cl <- private$.cl_setup
@@ -442,7 +442,7 @@ Piecemeal <- R6Class("Piecemeal",
 
     #' @description Delete the result files for which the worker function produced an error and/or which were somehow corrupted, or based on some other predicate.
     #' @param which a function of a result list (see `Piecemeal$result_list()`) returning `TRUE` if the result file is to be deleted and `FALSE` otherwise.
-    #' @details If `Piecemeal$options(error = "auto")` (the default) is set, changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run `clean()` before the next run.
+    #' @details If `Piecemeal$options(error = "auto")` (the default) is set, reinitialising the `Piecemeal` object or changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run `clean()` at the start of the next run.
     clean = function(which = function(res) !res$OK) {
       done <- private$.done()
       del <- done |> map_lgl(\(fn) which(safe_readRDS(fn)), .progress = "Loading and filtering")
@@ -500,12 +500,12 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description Set miscellaneous options.
-    #' @param split a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting configurations and the second for splitting seeds; this can improve performance on some file systems.
+    #' @param split a two-element vector indicating whether the output files should be split up into subdirectories and how deeply, the first for splitting by configuration and the second for splitting by seed; this can improve performance on some file systems.
     #' @param error how to handle worker errors:\describe{
     #' \item{`"save"`}{save the seed, the configuration, and the status, preventing future runs until the file is removed using `Piecemeal$clean()`.}
     #' \item{`"skip"`}{return the error message as a part of `Piecemeal$run()`'s return value, but do not save the RDS file; the next `Piecemeal$run()` will attempt to run the worker for that configuration and seed again.}
     #' \item{`"stop"`}{allow the error to propagate; can be used in conjunction with `Piecemeal$cluster(NULL)` and (global) `options(error = recover)` to debug the worker, though `Piecemeal$debug()` method is probably more convenient.}
-    #' \item{`"auto"`}{(default) as `"save"`, but if any of the methods that change how each configuration is run (i.e., `Piecemeal$worker()`, `Piecemeal$setup()`, and `Piecemeal$export_vars()`) is called, `Piecemeal$clean()` will be called automatically before the next `$run()`.}
+    #' \item{`"auto"`}{(default) as `"save"`, but if the `Piecemeal` is reinitialised or any of the methods that change how each configuration is run (i.e., `Piecemeal$worker()`, `Piecemeal$setup()`, and `Piecemeal$export_vars()`) is called, `Piecemeal$clean()` will be called automatically at the start of the next `Piecemeal$run()`.}
     #' }
     options = function(split = c(1L, 1L), error = c("auto", "save", "skip", "stop")) {
       if(!missing(split)) private$.split <- rep_len(split, 2L)
