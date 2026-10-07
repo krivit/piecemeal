@@ -65,17 +65,23 @@ Piecemeal <- R6Class("Piecemeal",
     .toclean = TRUE,
     .setup_env = function(cl = NULL) {
       if(is.null(cl)) {
-        run_env <- new.env(parent = parent.env(.GlobalEnv))
-        run_env$.worker <- private$.worker
-        run_env$.outdir <- private$.outdir
+        # Set up an environment for the initial setup evaluation.
+        my_global_env <- new.env(parent = parent.env(.GlobalEnv))
+        my_global_env$.worker <- private$.worker
+        my_global_env$.outdir <- private$.outdir
 
-        eval(private$.setup, envir = run_env)
+        eval(private$.setup, envir = my_global_env)
+
+        # Recreate the environment, since setup code might have added
+        # more libraries to the search path.
+        my_global_env <- rlang::env_clone(my_global_env, parent = parent.env(.GlobalEnv))
+        environment(my_global_env$.worker) <- my_global_env
 
         for(i in seq_along(private$.cl_vars))
           for(name in private$.cl_vars[[i]])
-            assign(name, get(name, private$.cl_var_envs[[i]]), run_env)
+            assign(name, get(name, private$.cl_var_envs[[i]]), my_global_env)
 
-        run_env
+        my_global_env
       } else {
         .worker <- private$.worker
         .outdir <- private$.outdir
@@ -817,10 +823,10 @@ safe_readRDS <- function(file, ..., verbose = FALSE) {
 }
 
 run_config <- function(config, error, env = NULL) {
-  worker <- get(".worker", env %||% .GlobalEnv)
+  env <- env %||% globalenv()
 
   if(error != ".debug") { # If debugging, just run the worker and return the result.
-    outdir <- get(".outdir", env %||% .GlobalEnv)
+    outdir <- get(".outdir", env)
 
     fn <- config$fn
     subdirs <- config$subdirs
@@ -848,15 +854,15 @@ run_config <- function(config, error, env = NULL) {
   }
 
   treatment <- config$treatment
-  if(".seed" %in% names(formals(worker)))
+  if(".seed" %in% names(formals(env$.worker)))
     treatment$.seed <- config$seed
 
   set.seed(config$seed)
   # Results data structure = config + output + OK flag.
   config$output <- switch(error,
                           stop =,
-                          .debug = do.call(worker, treatment, envir = env %||% .GlobalEnv),
-                          try(do.call(worker, treatment, envir = env %||% .GlobalEnv), silent = TRUE))
+                          .debug = do.call(env$.worker, treatment, envir = env),
+                          try(do.call(env$.worker, treatment, envir = env), silent = TRUE))
 
   if (error != ".debug") {
     if(inherits(config$output, "try-error")) {
