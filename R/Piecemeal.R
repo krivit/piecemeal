@@ -320,9 +320,9 @@ Piecemeal <- R6Class("Piecemeal",
         table()
       summary <- if(length(status_counts))
         paste(names(status_counts), as.integer(status_counts),
-              sep = ": ", collapse = ", ")
+              sep = ": ") |> setNames(rep(" ", length(status_counts)))
       else "No runs."
-      cli_inform("Run summary: {summary}")
+      cli_inform(c("Run summary:", summary))
 
       invisible(if(length(statuses)) statuses else character(0))
     },
