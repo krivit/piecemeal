@@ -9,10 +9,11 @@ NULL
 #' @param mode Either "read" or "write". If "read" (default), opens the database as 
 #'   read-only and returns NULL if the database doesn't exist. If "write", creates the 
 #'   database and table if they don't exist and opens with write permissions.
+#' @param autoclose automatically close the connection when the calling function exits; requires the calling function to call all subsequent [on.exit()]s with `add = TRUE`.
 #' @return A database connection, or NULL if mode="read" and database doesn't exist
 #' @keywords internal
 #' @noRd
-db_connect <- function(outdir, mode = c("read", "write")) {
+db_connect <- function(outdir, mode = c("read", "write"), autoclose = TRUE) {
   mode <- match.arg(mode)
   
   db_path <- file.path(outdir, "consolidated.db")
@@ -44,6 +45,10 @@ db_connect <- function(outdir, mode = c("read", "write")) {
     }
   }
 
+  if (autoclose)
+    do.call(on.exit, list(substitute(DBI::dbDisconnect(con)), add = TRUE),
+            envir = parent.frame())
+
   con
 }
 
@@ -72,7 +77,6 @@ db_get_result <- function(con, filename) {
   if (is.character(con)) {
     con <- db_connect(con)
     if (is.null(con)) return(empty_result)
-    on.exit(DBI::dbDisconnect(con), add = TRUE)
   }
   
   result <- DBI::dbGetQuery(con, "
@@ -111,7 +115,6 @@ db_has_result <- function(con, filename) {
   if (is.character(con)) {
     con <- db_connect(con)
     if (is.null(con)) return(FALSE)
-    on.exit(DBI::dbDisconnect(con), add = TRUE)
   }
 
   # Check if the filename exists in the database
@@ -152,7 +155,6 @@ consolidate_results <- function(outdir) {
   if (length(files_to_consolidate) == 0) return(0)
 
   con <- db_connect(outdir, mode = "write")
-  on.exit(DBI::dbDisconnect(con), add = TRUE)
 
   count <- 0
   # Note: Future optimization could batch multiple inserts in a single transaction
@@ -231,8 +233,6 @@ get_file_mtimes <- function(outdir, files) {
     cli_progress_message("Scanning consolidated runs")
     con <- db_connect(outdir)
     if (!is.null(con)) {
-      on.exit(DBI::dbDisconnect(con), add = TRUE)
-      
       consolidated_files <- files[is_consolidated]
       basenames <- basename(consolidated_files)
       
