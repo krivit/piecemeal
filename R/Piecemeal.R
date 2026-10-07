@@ -95,10 +95,9 @@ Piecemeal <- R6Class("Piecemeal",
       cli_progress_done()
 
       # Get files from consolidated database
-      cli_progress_message("Finding consolidated runs")
       con <- db_connect(private$.outdir)
       if (!is.null(con)) {
-        on.exit(DBI::dbDisconnect(con))
+        cli_progress_message("Finding consolidated runs")
         # Interrupted consolidation may result in an rds file inserted
         # into the database but not deleted, so make sure it's only
         # listed once.
@@ -106,8 +105,8 @@ Piecemeal <- R6Class("Piecemeal",
         # Return full paths for consistency (use a virtual path prefix)
         db_files <- file.path(private$.outdir, ".consolidated", db_files)
         files <- c(files, db_files)
+        cli_progress_done()
       }
-      cli_progress_done()
 
       files
     },
