@@ -7,11 +7,18 @@
 This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See \href{../doc/piecemeal.html}{the vignette \code{vignette("piecemeal")}} for a long worked example. Examples of \R scripts suitable for non-interactive use on a computing cluster can be found in your package installation's \file{examples} directory, which can be located by running \code{system.file("examples", package = "piecemeal")}. (This appears to currently be \file{\Sexpr[stage=render]{system.file("examples", package = "piecemeal")}}.)
 }
 \details{
-A chain of \code{R6} method calls is used to specify the setup and the worker functions, the treatment configurations to be passed to the worker, and parallelism and other simulation settings. Then, when \verb{$run()} is called, the cluster is started, worker nodes are initialised, and every combination of random seed and treatment configuration is passed to \code{\link[=clusterApplyLB]{clusterApplyLB()}} (if parallel processing is enabled).
+A chain of \code{R6} method calls is used to specify the setup and the worker functions, the treatment configurations to be passed to the worker, and parallelism and other simulation settings. Then, when \verb{$run()} is called, the cluster is started (if not already running), worker nodes are initialised, and every combination of random seed and treatment configuration is passed to \code{\link[=clusterApplyLB]{clusterApplyLB()}} (if parallel processing is enabled).
 
 On the worker nodes, the worker function is not called directly; rather, care is taken to make sure that the specified configuration and seed is not already being worked on. This makes it safe to, e.g., queue multiple jobs for the same simulation. If the configuration is available, \code{set.seed()} is called with the seed and then the worker function is run.
 
 Errors in the worker function are caught and error messages saved and returned.
+
+When running with parallel processing disabled, \code{Piecemeal} tries to mimic the environment of a cluster as closely as possible while still allowing interactive debugging via \verb{$test()} and \verb{$debug()}. Specifically:
+\itemize{
+\item The worker function's own environment is ignored. That is, if the worker function is defined in an environment that contains a certain variable, the worker function will not be able to "see" it unless it was explicitly exported.
+\item The random number generator state (\code{\link{.Random.seed}}) is saved before the configuration's seed is set and run and restored after.
+\item However, the \code{\link[=search]{search()}} path (packages attached by \code{\link[=library]{library()}}) is global to an \R session, so the mimicry is imperfect: any packages attached on the manager session will be visible to the worker function run locally but not to one run on a cluster node, unless a part of \verb{$setup()}.
+}
 }
 \examples{
 # Initialise, with the output directory.
@@ -25,7 +32,7 @@ sim$
   factorial(x = 2^(0:1), y = 3^(0:3))$
   # each replicated 3 times,
   nrep(3)$
-  # first load library 'rlang',
+  # first load library 'rlang', once per node,
   setup({library(rlang)})$
   # then for each x, y, and seed, evaluate
   worker(function(x, y) {
@@ -112,7 +119,7 @@ sim$result_df()
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{...}}{either arguments to \code{\link[=makeCluster]{makeCluster()}} or a single argument containing either an existing cluster or \code{NULL} to disable clustering.}
+      \item{\code{...}}{either arguments to \code{\link[=makeCluster]{makeCluster()}} or a single argument containing either an existing cluster or \code{NULL} to disable parallel computing.}
     }
     \if{html}{\out{</div>}}
   }
