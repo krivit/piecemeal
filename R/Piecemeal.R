@@ -84,7 +84,7 @@ Piecemeal <- R6Class("Piecemeal",
       detect(private$.treatments, function(x) attr(x, "hash") == hash)
     },
     .config_by_hash_seed = function(hash, seed) {
-      list(treatment = .treatment_by_hash(hash), seed = as.integer(seed))
+      list(treatment = private$.treatment_by_hash(hash), seed = as.integer(seed))
     },
     .setup_env = function(cl = NULL) {
       if(is.null(cl)) {
@@ -302,7 +302,7 @@ Piecemeal <- R6Class("Piecemeal",
     test = function(config = 1, shuffle = TRUE, error = getOption("error")) {
       private$.check_args()
       run_env <- private$.setup_env()
-      configs <- if (is.list(config) && every(config, function(x) is.list(x) && all(hasNames(x, c("seed", "treatment"))))) {
+      configs <- if (is.list(config) && every(config, function(x) is.list(x) && all(c("seed", "treatment") %in% names(x)))) {
                    config
                  } else if (is.numeric(config)) {
                    if (shuffle) sample(self$todo(), config)
@@ -526,7 +526,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @return The result list, with element `$output` containing the value returned by the worker.
     debug = function(result = 1, error = recover) {
       private$.check_args()
-      result <- if (is.list(result) && all(hasNames(result, c("seed", "treatment")))) result
+      result <- if (is.list(result) && all(c("seed", "treatment") %in% names(result))) result
                 else if (is.numeric(result)) result <- self$erred(n = result)[[result]]
                 else cli_abort("Invalid result specification.")
 
