@@ -16,7 +16,7 @@ test_that("test() runs requested configuration formats", {
   set.seed(1)
   sampled <- sim$test(config = 2)
   expect_length(sampled, 2)
-  expect_true(all(vapply(sampled, function(x) x$OK, logical(1))))
+  expect_true(all(vapply(sampled, function(x) is.numeric(x$output), logical(1))))
 
   hash_seed <- c(
     attr(todo[[1]]$treatment, "hash"),
