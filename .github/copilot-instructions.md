@@ -70,6 +70,11 @@ devtools::test()
 devtools::check()
 ```
 
+### Copilot Agent Environment
+- R and the package dependencies are installed by `.github/workflows/copilot-setup-steps.yml`.
+- Use `Rscript -e 'testthat::test_local()'` to run the test suite.
+- Use `Rscript -e 'covr::package_coverage()'` to measure code coverage.
+
 ### CI/CD
 - The package uses GitHub Actions with `R-CMD-check` workflow
 - Tests run on multiple platforms: macOS, Windows, Ubuntu (devel, release, oldrel-1)
