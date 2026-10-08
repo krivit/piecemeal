@@ -42,6 +42,34 @@ test_that("test() restores error options after worker errors", {
   expect_identical(getOption("error"), prior_error)
 })
 
+test_that("test() detects treatment arguments the worker cannot accept", {
+  outdir <- tempfile("piecemeal_test_args_")
+  on.exit(unlink(outdir, recursive = TRUE))
+
+  sim <- piecemeal::init(outdir)
+  sim$treatments(list(list(a = 1, unexpected = 2)))
+  sim$worker(function(a) a)
+
+  expect_error(
+    sim$test(),
+    "unused argument.*treatment configuration 1"
+  )
+})
+
+test_that("test() validates treatments when the worker accepts .seed", {
+  outdir <- tempfile("piecemeal_test_args_seed_")
+  on.exit(unlink(outdir, recursive = TRUE))
+
+  sim <- piecemeal::init(outdir)
+  sim$treatments(list(list(a = 1, unexpected = 2)))
+  sim$worker(function(a, .seed) a + .seed)
+
+  expect_error(
+    sim$test(),
+    "unused argument.*treatment configuration 1"
+  )
+})
+
 test_that("debug() runs explicit and saved failed configurations", {
   outdir <- tempfile("piecemeal_test_debug_")
   on.exit(unlink(outdir, recursive = TRUE))
