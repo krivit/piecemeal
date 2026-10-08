@@ -35,6 +35,7 @@ test_that("run() does not stop a preexisting cluster", {
 
   sim <- piecemeal::init(outdir)
   sim$worker(function() 1)
+  sim$seeds(integer())
   sim$cluster(cl)
   sim$run(shuffle = FALSE)
 
