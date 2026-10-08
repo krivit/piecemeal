@@ -1,3 +1,12 @@
+# These names are not syntactic R names so will hopefully not clash
+# with anything the user might do. They also produce prettier error
+# messages.
+#
+# TODO: Make these user-customisable?
+worker_var <- "<worker>"
+outdir_var <- "<output directory>"
+reserved_vars <- c(worker_var, outdir_var)
+
 #' The `Piecemeal` [`R6`] Class
 #'
 #' @description This class exports methods for configuring a simulation, running it, debugging failed configurations, and resuming the simulation. See [the vignette `vignette("piecemeal")`](../doc/piecemeal.html) for a long worked example. Examples of \R scripts suitable for non-interactive use on a computing cluster can be found in your package installation's \file{examples} directory, which can be located by running `system.file("examples", package = "piecemeal")`. (This appears to currently be \file{\Sexpr[stage=render]{system.file("examples", package = "piecemeal")}}.)
@@ -81,15 +90,15 @@ Piecemeal <- R6Class("Piecemeal",
       if(is.null(cl)) {
         # Set up an environment for the initial setup evaluation.
         my_global_env <- new.env(parent = parent.env(.GlobalEnv))
-        my_global_env$.worker <- private$.worker
-        my_global_env$.outdir <- private$.outdir
+        my_global_env[[worker_var]] <- private$.worker
+        my_global_env[[outdir_var]] <- private$.outdir
 
         eval(private$.setup, envir = my_global_env)
 
         # Recreate the environment, since setup code might have added
         # more libraries to the search path.
         my_global_env <- rlang::env_clone(my_global_env, parent = parent.env(.GlobalEnv))
-        environment(my_global_env$.worker) <- my_global_env
+        environment(my_global_env[[worker_var]]) <- my_global_env
 
         for(i in seq_along(private$.cl_vars))
           for(name in private$.cl_vars[[i]])
@@ -97,9 +106,9 @@ Piecemeal <- R6Class("Piecemeal",
 
         my_global_env
       } else {
-        .worker <- private$.worker
-        .outdir <- private$.outdir
-        clusterExport(cl, c(".worker", ".outdir"), environment())
+        assign(worker_var, private$.worker)
+        assign(outdir_var, private$.outdir)
+        clusterExport(cl, c(worker_var, outdir_var), environment())
 
         clusterCall(cl, eval, private$.setup, envir = .GlobalEnv)
 
@@ -216,6 +225,8 @@ Piecemeal <- R6Class("Piecemeal",
     #' @param envir the environment on the manager node from which to take the variables; defaults to the current environment.
     #' @param .add whether the new variables should be added to the current list (if `TRUE`, the default) or replace it (if `FALSE`).
     export_vars = function(varlist, envir = parent.frame(), .add = TRUE) {
+      if (any(varlist %in% reserved_vars))
+        cli_abort("Variable names {.var {reserved_vars}} are reserved for internal use.")
       private$.toclean <- TRUE
       if(!.add) private$.cl_vars <- private$.cl_var_envs <- list()
       if(length(eid <- which(map_lgl(private$.cl_var_envs, identical, envir))) == 0L) {
@@ -302,7 +313,7 @@ Piecemeal <- R6Class("Piecemeal",
 
                    map2(hashes, seeds, private$.config_by_hash_seed)
                  } else {
-                   cli_abort("invalid configuration specification")
+                   cli_abort("Invalid configuration specification.")
                  }
 
       map(configs, function(config) {
@@ -312,14 +323,14 @@ Piecemeal <- R6Class("Piecemeal",
         )
 
         if (some(list(debug, debugonce, "debug", "debugonce"), identical, error)) {
-          debugonce(run_env$.worker)
+          debugonce(run_env[[worker_var]])
         } else {
           o <- options(error = error)
           on.exit(options(o))
         }
 
         run_config(config, error = ".debug", env = run_env)
-        })
+      })
     },
 
     #' @description Run the simulation.
@@ -517,11 +528,11 @@ Piecemeal <- R6Class("Piecemeal",
       private$.check_args()
       result <- if (is.list(result) && all(hasNames(result, c("seed", "treatment")))) result
                 else if (is.numeric(result)) result <- self$erred(n = result)[[result]]
-                else cli_abort("invalid result specification")
+                else cli_abort("Invalid result specification.")
 
       run_env <- private$.setup_env()
       if (some(list(debug, debugonce, "debug", "debugonce"), identical, error)) {
-        debugonce(run_env$.worker)
+        debugonce(run_env[[worker_var]])
       } else {
         o <- options(error = error)
         on.exit(options(o))
@@ -861,7 +872,7 @@ run_config <- function(config, error, env = NULL) {
   env <- env %||% globalenv()
 
   if(error != ".debug") { # If debugging, just run the worker and return the result.
-    outdir <- get(".outdir", env)
+    outdir <- get(outdir_var, env)
 
     fn <- config$fn
     subdirs <- config$subdirs
@@ -889,7 +900,7 @@ run_config <- function(config, error, env = NULL) {
   }
 
   treatment <- config$treatment
-  if(".seed" %in% names(formals(env$.worker)))
+  if(".seed" %in% names(formals(env[[worker_var]])))
     treatment$.seed <- config$seed
 
   # Save and (on exit) restore the random seed so that running the worker does
@@ -900,8 +911,8 @@ run_config <- function(config, error, env = NULL) {
   # Results data structure = config + output + OK flag.
   config$output <- switch(error,
                           stop =,
-                          .debug = do.call(env$.worker, treatment, envir = env),
-                          try(do.call(env$.worker, treatment, envir = env), silent = TRUE))
+                          .debug = eval(as.call(c(list(as.name(worker_var)), treatment)), env),
+                          try(eval(as.call(c(list(as.name(worker_var)), treatment)), env), silent = TRUE))
 
   if (error != ".debug") {
     if(inherits(config$output, "try-error")) {
