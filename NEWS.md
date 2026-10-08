@@ -2,6 +2,24 @@
 
 ## New features
 
+* Method `Piecemeal$autorun()`, wrapping `Piecemeal$run()` to only run
+  when in an interactive session and not sourced from another
+  file. This allows the simulation to be specified in fewer files when
+  run on a shared cluster. See the `examples` directory for an example set up.
+
+* Method `Piecemeal$debug()` to run the specified erred configuration on the
+  local system.
+
+* Method `Piecemeal$test()` to (re-)run the specified configuration on
+  the local system.
+
+* To facilitate debugging, {piecemeal} is now much more careful about
+  setting up the local (non-cluster) run environment to be closer to
+  what would have happened on a cluster with the same settings. For
+  example, just because a variable was present in the environment when
+  the worker function was defined does not mean that the function will
+  be able to see it, unless it is exported first.
+
 * The package now keeps track of the last successful run and the last
   time a consolidation was performed, accessible via
   `Piecemeal$last_OK()` and `Piecemeal$last_consolidated()`,
@@ -11,21 +29,26 @@
   unconsolidated results and prints last successful completion and
   consolidation times.
 
-* Method `Piecemeal$debug()` to run the specified erred configuration on the
-  local system.
+* Package {cli} is now used for better-looking messages.
 
-* Method `Piecemeal$test()` to (re-)run the specified configuration on
-  the local system.
+* The vignette now demonstrates more of the package's features.
 
 ## Other user-visible changes
 
 * The result `.rds` file format has changed. Old simulation results
   should still work for now.
 
+* The flag to clean erred result files at the start of a run is now
+  also set if the simulation is reinitialised.
+
+* Random seeds set over the course of a simulation are now ephemeral.
+
 ## Bug fixes
 
 * `is_locked()` would sometimes return a `list` containing `logical`
   rather than a `logical`.
+
+* A database connection leak has been fixed.
 
 * ETA calculation is now skipped if there are too few completed runs,
   and an informative message is printed.
