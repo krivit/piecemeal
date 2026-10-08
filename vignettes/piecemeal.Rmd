@@ -12,7 +12,17 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
-)
+  )
+options(cli.ansi = FALSE, cli.dynamic = FALSE)
+```
+
+Quick note: This vignette is intended to demonstrate one possible way
+debugging of this code might have gone. Because some parts of this
+process are stochastic (even outside the worker function) we set a
+starting seed that will provide the most informative series of
+results.
+```{r}
+set.seed(1)
 ```
 
 Suppose that we want to simulate a function of two variables, $x$ and
@@ -44,7 +54,8 @@ f <- function(x, y) {
 }
 ```
 
-We begin by setting the directory for run results. We will use R's temporary directory:
+We begin by setting the directory for run results. We will use R's
+temporary directory for this demonstration:
 ```{r}
 outdir <- file.path(tempdir(), "piecemeal_demo")
 ```
@@ -90,35 +101,53 @@ sim$
   worker(f)
 ```
 
-We can obtain a list of configurations (combinations of treatment and seed) to be run. (Here, first two are shown.)
+We can obtain a list of configurations (combinations of treatment and
+seed) to be run. (Here, first two are shown.)
 ```{r}
 head(sim$todo(), 2)
 ```
+
+Let's try a quick test run. The following will run the worker for a
+random configuration on the local system (ignoring the cluster
+settings). It can be useful to test for basic problems before
+submitting the batch job, though it is likely to work best when the
+individual runs are relatively short.
+```{r, error = TRUE}
+sim$test()
+```
+(Each treatment is identified by a hash which can be used to reference
+it for future evaluations of `$test()` if desired.)
+
+Notice that despite running locally, the worker function can't see the
+variable `a`. This is because we want the results of `$test()` to be
+as representative as possible of what would happen if we were to run
+it on a cluster. (Note that certain aspects of system setup, such as
+which libraries are loaded, cannot be replicated exactly while
+allowing interactive debugging.)
+
+We need to export `a` to the worker nodes and test again:
+```{r, error = TRUE}
+sim$export_vars("a")
+sim$test()
+```
+
+We now have a complaint that we haven't loaded the `rlang` package. Let's fix that:
+```{r, error = TRUE}
+sim$setup({library(rlang)})
+sim$test()
+```
+It works (assuming you are using the same random seed as this vignette)!
 
 We can now execute this setup. It will print a summary of the results of each run.
 ```{r}
 sim$run()
 ```
 
-We can also view a summary of completed, pending, and ongoing runs any time. If any runs have been completed, an estimated time to finish the rest at the current rate will also be estimated.
+We can also view a summary of completed, pending, and ongoing runs any
+time. If any runs have been completed, an estimated time to finish the
+rest at the current rate will also be estimated.
 ```{r}
 sim$status() # or summary(sim)
-```
-
-Looks like all configurations failed, because the worker nodes can't
-find the variable `a`. Let's export it to the worker nodes, and try
-again. This will also automatically clear the failed runs next time we
-run the simulation.
-```{r}
-sim$export_vars("a")
-sim$run()
-```
-
-We have new errors. Most of the nodes complain that we haven't
-loaded the `rlang` package. Let's fix that:
-```{r}
-sim$setup({library(rlang)})
-sim$run()
 ```
 
 Some runs have succeeded. Here's what the individual run output files look like:
@@ -130,7 +159,7 @@ Notice that they are split up into subdirectories. This improves
 performance on some file systems. It can be controlled by the
 `$options(split=)` setting.
 
-If we run again, completed runs will be skipped:
+If we run again, completed runs (both successful and erred) will be skipped:
 ```{r}
 sim$run()
 ```
@@ -142,21 +171,23 @@ to use custom functions for `$result_df()` or use `$result_list()` instead.
 sim$result_df()
 ```
 
-The remaining errors are more subtle. We can see which treatments and
+The remaining errors are stochastic. We can see which treatments and
 seeds led to unsuccessful runs:
 ```{r}
 head(sim$erred(), 2)
 ```
 
-In fact, we can easily test-run the function to reproduce the error:
-```{r, error = TRUE}
-errcfg <- sim$erred()[[1]]
-# debugonce(f) # to step through it
-set.seed(errcfg$seed)
-do.call(f, errcfg$treatment)
+We can run an erred configuration (by default the first one) on the
+local system (ignoring the cluster settings) with `options(error =
+recover)` set. Alternatively, we can debug it from the beginning with
+a special argument value:
+```{r, eval = FALSE}
+sim$debug()
+sim$debug(error = "debug")
 ```
 
-Let's say that based on the above, we were able to fix the bug. Our new functions is as follows:
+Let's say that based on the above, we were able to fix the bug. Our
+new functions is as follows:
 ```{r}
 f <- function(x, y) {
   p <- x*y
@@ -181,6 +212,21 @@ We have all 24 combinations!
 ```{r}
 sim$result_df()
 ```
+
+In a large simulation, we could end up with tens of thousands of small
+files, which can be slow and inefficient on some file systems and
+cause [inode
+exhaustion](https://en.wikipedia.org/wiki/Inode#Potential_for_inode_exhaustion_and_solutions),
+particularly on a shared system where inode counts might be limited by
+a quota. To avoid this, a transparent mechanism is provided for
+consolidating the result files into an SQLite database. Simply run:
+```{r}
+sim$consolidate()
+list.files(outdir, recursive = TRUE)
+```
+The individual result files (only the successful ones) have been
+replaced by a single database. All of `Piecemeal`'s methods access
+these transparently.
 
 Lastly, suppose that we want to run additional 2 replications of each
 treatment combination. We can add more replications, and the
