@@ -14,6 +14,8 @@
 #' * The random number generator state ([`.Random.seed`]) is saved before the configuration's seed is set and run and restored after.
 #' * However, the [search()] path (packages attached by [library()]) is global to an \R session, so the mimicry is imperfect: any packages attached on the manager session will be visible to the worker function run locally but not to one run on a cluster node, unless a part of `$setup()`.
 #' 
+#' @param error sets the [options()] `error=` option before calling the worker; special values `"debug"` or `"debugonce"` (with or without quotes) will instead debug the worker function from the start, i.e., as if [debugonce()] were called on it first. See the [the vignette `vignette("piecemeal")`](../doc/piecemeal.html) for an illustration.
+#'
 #' @examples
 #' # Initialise, with the output directory.
 #' sim <- piecemeal::init(file.path(tempdir(), "piecemeal_demo"))
@@ -69,6 +71,12 @@ Piecemeal <- R6Class("Piecemeal",
     .split = c(1L, 1L),
     .error = "auto",
     .toclean = TRUE,
+    .treatment_by_hash = function(hash) {
+      detect(private$.treatments, function(x) attr(x, "hash") == hash)
+    },
+    .config_by_hash_seed = function(hash, seed) {
+      list(treatment = .treatment_by_hash(hash), seed = as.integer(seed))
+    },
     .setup_env = function(cl = NULL) {
       if(is.null(cl)) {
         # Set up an environment for the initial setup evaluation.
@@ -273,28 +281,43 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description Test-run some treatment configurations on the local system and return their results without saving.
-    #' @param config,shuffle see Details.
-    #' @param error sets [options()] `error=` option before calling the worker.
-    #' @details The configurations to run are determined as follows:
-    #' 1. If `config` is numeric, it is treated as indexing a list of treatment configurations to run in the same format as that of `Piecemeal$todo()`. If only passing one configuration, remember to wrap it in [list()].
-    #' 2. If `config` is a number and `shuffle == TRUE` (the default), then run `config` configurations, chosen at random from those left to do.
-    #' 3. If `config` is numeric and `shuffle == FALSE`, `config` is treated as a vector of indices from the list returned by `Piecemeal$todo()`.
+    #' @details This function ignores cluster settings and bypasses the usual bookkeeping: the given configuration is run even if the result file already exists, and the results are returned and not saved. If the run results in an error, it is handled according to the `error` argument.
+    #' @param config,shuffle which configurations to run; the configurations can be specified as follows:
+    #' * `config` a [`list`] of treatment configurations in the same format as that of `Piecemeal$todo()`. If only passing one configuration, remember to wrap it in [list()].
+    #' * `config` a character vector of the form `c(treatment_hash, seed)` (or multiple such concatenated). (The seed will be converted back to an integer.)
+    #' * `config` a number and `shuffle == TRUE` (the default): run `config` configurations, chosen at random from those left to do.
+    #' * `config` a numeric vector and `shuffle == FALSE`: `config` is treated as a vector of indices from the list returned by `Piecemeal$todo()`.
     #' @return A list containing the results of the runs, with each sublist's element `$output` containing the value returned by the worker. They are not saved.
-    test = function(config = 1, shuffle = TRUE, error = recover) {
+    test = function(config = 1, shuffle = TRUE, error = getOption("error")) {
       private$.check_args()
       run_env <- private$.setup_env()
-      configs <- self$todo()
-      configs <- if(is.numeric(config))
-                   configs[if(shuffle) sample.int(length(configs), config) else config]
-                 else config
+      configs <- if (is.list(config) && every(config, function(x) is.list(x) && all(hasNames(x, c("seed", "treatment"))))) {
+                   config
+                 } else if (is.numeric(config)) {
+                   if (shuffle) sample(self$todo(), config)
+                   else self$todo()[config]
+                 } else if (is.character(config) && length(config) %% 2L == 0L) {
+                   hashes <- config[seq_along(config) %% 2L == 1]
+                   seeds <- config[seq_along(config) %% 2L == 0]
 
-      o <- options(error = error)
-      on.exit(options(o))
+                   map2(hashes, seeds, private$.config_by_hash_seed)
+                 } else {
+                   cli_abort("invalid configuration specification")
+                 }
+
       map(configs, function(config) {
         cli_rule(
           left = "Running configuration {.val {attr(config$treatment, 'hash')}}",
           right = "seed {.val {config$seed}}"
         )
+
+        if (some(list(debug, debugonce, "debug", "debugonce"), identical, error)) {
+          debugonce(run_env$.worker)
+        } else {
+          o <- options(error = error)
+          on.exit(options(o))
+        }
+
         run_config(config, error = ".debug", env = run_env)
         })
     },
@@ -360,7 +383,7 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description List the configurations still to be run.
-    #' @return A list of lists with arguments to the worker functions and worker-specific configuration settings; also an attribute `"done"` giving the number of configurations skipped because they are already done.
+    #' @return A list of lists with arguments to the worker functions and worker-specific configuration settings (particularly with elements `$seed` with the random seed and `$treatment` with the arguments to the worker); also an attribute `"done"` giving the number of configurations skipped because they are already done.
     todo = function() {
       configs <- expand.list(seed = private$.seeds,
                              treatment = if(length(private$.treatments)) private$.treatments
@@ -487,21 +510,27 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description Debug the worker for a particular configuration.
-    #' @details This function ignores cluster settings bypasses the usual bookkeeping: the given configuration is run even if the result file already exists, and the results are returned and not saved.
-    #' @param result either a list in the result format (particularly with elements `$seed` with the random seed and `$treatment` with the arguments to the worker) or number indexing the list returned by `Piecemeal$erred()`.
-    #' @param error sets [options()] `error=` option before calling the worker.
+    #' @inherit Piecemeal$test details
+    #' @param result either a list in the `Piecemeal$todo()` format or a number indexing the list returned by `Piecemeal$erred()`.
     #' @return The result list, with element `$output` containing the value returned by the worker.
     debug = function(result = 1, error = recover) {
       private$.check_args()
-      if(is.numeric(result)) result <- self$erred(n = result)[[result]]
+      result <- if (is.list(result) && all(hasNames(result, c("seed", "treatment")))) result
+                else if (is.numeric(result)) result <- self$erred(n = result)[[result]]
+                else cli_abort("invalid result specification")
+
       run_env <- private$.setup_env()
-      o <- options(error = error)
-      on.exit(options(o))
+      if (some(list(debug, debugonce, "debug", "debugonce"), identical, error)) {
+        debugonce(run_env$.worker)
+      } else {
+        o <- options(error = error)
+        on.exit(options(o))
+      }
       run_config(result, error = ".debug", env = run_env)
     },
 
     #' @description Consolidate successful run result files into a SQLite database.
-    #' @details This method consolidates individual RDS result files into a single database to reduce inode usage. Only successful runs (where `OK = TRUE`) are consolidated. This function is safe to run while simulations are running and to interrupt (using \kbd{CTRL-C} or analogous) and resume, but only one consolidation may be run at the same time. Consolidated and unconsolidated results can be accessed transparently.
+    #' @details This method consolidates individual RDS result files into a single database to reduce inode usage. Only successful runs (where `OK == TRUE`) are consolidated. This function is safe to run while simulations are running and to interrupt (using \kbd{CTRL-C} or analogous) and resume, but only one consolidation may be run at the same time. Consolidated and unconsolidated results can be accessed transparently.
     #' @return Invisibly, the number of files consolidated.
     consolidate = function() {
       count <- consolidate_results(private$.outdir)

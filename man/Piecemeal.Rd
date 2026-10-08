@@ -276,24 +276,25 @@ sim$result_df()
   Test-run some treatment configurations on the local system and return their results without saving.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{Piecemeal$test(config = 1, shuffle = TRUE, error = recover)}
+    \preformatted{Piecemeal$test(config = 1, shuffle = TRUE, error = getOption("error"))}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{config, shuffle}}{see Details.}
-      \item{\code{error}}{sets \code{\link[=options]{options()}} \verb{error=} option before calling the worker.}
+      \item{\code{config, shuffle}}{which configurations to run; the configurations can be specified as follows:
+\itemize{
+\item \code{config} a \code{\link{list}} of treatment configurations in the same format as that of \code{Piecemeal$todo()}. If only passing one configuration, remember to wrap it in \code{\link[=list]{list()}}.
+\item \code{config} a character vector of the form \code{c(treatment_hash, seed)} (or multiple such concatenated). (The seed will be converted back to an integer.)
+\item \code{config} a number and \code{shuffle == TRUE} (the default): run \code{config} configurations, chosen at random from those left to do.
+\item \code{config} a numeric vector and \code{shuffle == FALSE}: \code{config} is treated as a vector of indices from the list returned by \code{Piecemeal$todo()}.
+}}
+      \item{\code{error}}{sets the \code{\link[=options]{options()}} \verb{error=} option before calling the worker; special values \code{"debug"} or \code{"debugonce"} (with or without quotes) will instead debug the worker function from the start, i.e., as if \code{\link[=debugonce]{debugonce()}} were called on it first. See the \href{../doc/piecemeal.html}{the vignette \code{vignette("piecemeal")}} for an illustration.}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Details}{
-    The configurations to run are determined as follows:
-\enumerate{
-\item If \code{config} is numeric, it is treated as indexing a list of treatment configurations to run in the same format as that of \code{Piecemeal$todo()}. If only passing one configuration, remember to wrap it in \code{\link[=list]{list()}}.
-\item If \code{config} is a number and \code{shuffle == TRUE} (the default), then run \code{config} configurations, chosen at random from those left to do.
-\item If \code{config} is numeric and \code{shuffle == FALSE}, \code{config} is treated as a vector of indices from the list returned by \code{Piecemeal$todo()}.
-}
+    This function ignores cluster settings and bypasses the usual bookkeeping: the given configuration is run even if the result file already exists, and the results are returned and not saved. If the run results in an error, it is handled according to the \code{error} argument.
   }
   \subsection{Returns}{
     A list containing the results of the runs, with each sublist's element \verb{$output} containing the value returned by the worker. They are not saved.
@@ -356,7 +357,7 @@ sim$result_df()
     \if{html}{\out{</div>}}
   }
   \subsection{Returns}{
-    A list of lists with arguments to the worker functions and worker-specific configuration settings; also an attribute \code{"done"} giving the number of configurations skipped because they are already done.
+    A list of lists with arguments to the worker functions and worker-specific configuration settings (particularly with elements \verb{$seed} with the random seed and \verb{$treatment} with the arguments to the worker); also an attribute \code{"done"} giving the number of configurations skipped because they are already done.
   }
 }
 
@@ -492,13 +493,10 @@ Runs that erred are filtered out.
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{result}}{either a list in the result format (particularly with elements \verb{$seed} with the random seed and \verb{$treatment} with the arguments to the worker) or number indexing the list returned by \code{Piecemeal$erred()}.}
-      \item{\code{error}}{sets \code{\link[=options]{options()}} \verb{error=} option before calling the worker.}
+      \item{\code{result}}{either a list in the \code{Piecemeal$todo()} format or a number indexing the list returned by \code{Piecemeal$erred()}.}
+      \item{\code{error}}{sets the \code{\link[=options]{options()}} \verb{error=} option before calling the worker; special values \code{"debug"} or \code{"debugonce"} (with or without quotes) will instead debug the worker function from the start, i.e., as if \code{\link[=debugonce]{debugonce()}} were called on it first. See the \href{../doc/piecemeal.html}{the vignette \code{vignette("piecemeal")}} for an illustration.}
     }
     \if{html}{\out{</div>}}
-  }
-  \subsection{Details}{
-    This function ignores cluster settings bypasses the usual bookkeeping: the given configuration is run even if the result file already exists, and the results are returned and not saved.
   }
   \subsection{Returns}{
     The result list, with element \verb{$output} containing the value returned by the worker.
@@ -516,7 +514,7 @@ Runs that erred are filtered out.
     \if{html}{\out{</div>}}
   }
   \subsection{Details}{
-    This method consolidates individual RDS result files into a single database to reduce inode usage. Only successful runs (where \code{OK = TRUE}) are consolidated. This function is safe to run while simulations are running and to interrupt (using \kbd{CTRL-C} or analogous) and resume, but only one consolidation may be run at the same time. Consolidated and unconsolidated results can be accessed transparently.
+    This method consolidates individual RDS result files into a single database to reduce inode usage. Only successful runs (where \code{OK == TRUE}) are consolidated. This function is safe to run while simulations are running and to interrupt (using \kbd{CTRL-C} or analogous) and resume, but only one consolidation may be run at the same time. Consolidated and unconsolidated results can be accessed transparently.
   }
   \subsection{Returns}{
     Invisibly, the number of files consolidated.
