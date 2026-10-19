@@ -132,9 +132,10 @@ db_has_result <- function(con, filename) {
 #' @keywords internal
 #' @noRd
 consolidate_results <- function(outdir) {
+  dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+
   # Use a lock file to ensure only one process consolidates at a time
   lock_path <- file.path(outdir, ".consolidate.lock")
-  dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
   lock <- filelock::lock(lock_path, timeout = 0)
   if (is.null(lock)) {
