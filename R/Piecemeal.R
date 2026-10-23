@@ -509,7 +509,8 @@ Piecemeal <- R6Class("Piecemeal",
       con <- db_connect(private$.outdir)
 
       nerr <- 0L
-      private$.done() |>
+      # NB: Erred runs are never consolidated.
+      private$.done(consolidated = FALSE) |>
         map(function(fn) {
           if (nerr >= n) return(NULL)
           o <- read_result(private$.outdir, fn, con)
@@ -621,24 +622,24 @@ Piecemeal <- R6Class("Piecemeal",
     #' @return An object of class `Piecemeal_status` containing a frequency [`table`] summarising simulation outcomes including frequencies of different error messages, attribute `"eta"` with a `Piecemeal_eta` as well as a number of other attributes useful for printing the simulation status.
     status = function(...) {
       # Get all done files
-      done <- private$.done()
-      
-      # Separate consolidated from individual files
-      # Consolidated files are in the database and have .consolidated directory in their path
-      # Use .Platform$file.sep to handle both Unix (/) and Windows (\) separators
-      consolidated_pattern <- paste0(.Platform$file.sep, ".consolidated", .Platform$file.sep)
-      is_consolidated <- grepl(consolidated_pattern, done, fixed = TRUE)
-      
+      individual <- private$.done(consolidated = FALSE)
+      consolidated <- private$.done(consolidated = TRUE)
+
+      if (any(inter <- basename(consolidated) %in% basename(individual))) {
+        cli_alert_warning("Run(s) {.paths {inter}} found both individually and in the database; suggest running {.code $consolidate()} unless already in progress.")
+        consolidated <- consolidated[!inter]
+      }
+
+      n_individual <- length(individual)
       # For consolidated files, we know they're successful (only successful runs get consolidated)
-      n_consolidated <- sum(is_consolidated)
+      n_consolidated <- length(consolidated)
       
       # For individual files, we need to check their status
-      individual_files <- done[!is_consolidated]
       Result <- character(0)
       
-      if (length(individual_files) > 0) {
+      if (length(individual) > 0) {
         # Read only individual files to check their status
-        Result <- map_chr(individual_files, function(fn) {
+        Result <- map_chr(individual, function(fn) {
           o <- safe_readRDS(fn)
           if(o$OK) "Done"
           else if(is.null(o$fn)) "Corrupted"
@@ -654,11 +655,11 @@ Piecemeal <- R6Class("Piecemeal",
       inprog <- length(doing)
       Result <- c(Result,
                   rep_len("Running (approx.)", inprog),
-                  rep_len("ToDo", max(0, total - length(done) - inprog)))
+                  rep_len("ToDo", max(0, total - n_consolidated - n_individual - inprog)))
 
       o <- table(Result)     
       if (sum(o[startsWith(names(o), "Done")]) > 1L)
-        attr(o, "eta") <- private$.eta(..., done = done, doing = doing)
+        attr(o, "eta") <- private$.eta(..., done = c(individual, consolidated), doing = doing)
       # NB: last_*() should be called after .eta(), because the latter
       # takes a nontrivial amount of time.
       structure(o,
