@@ -812,9 +812,18 @@ by2char <- function(s, n, where = c("start", "end")) {
   map_chr(seq_len(n), \(i) substr(s, start + i*2L - 1L, start + i*2L))
 }
 
+# TODO: Vectorise this function.
 config_subdir <- function(config, split = c(0L, 0L)) {
-  hash <- attr(config$treatment, "hash")
-  seed <- as.character(config$seed)
+  if (is.character(config)) {
+    comp <- strsplit(basename(config), ".", fixed = TRUE)
+    hash <- map_chr(comp, 1L)
+    seed <- map_chr(comp, 2L)
+
+    stopifnot(length(hash) == 1L, length(seed) == 1L)
+  } else {
+    hash <- attr(config$treatment, "hash")
+    seed <- as.character(config$seed)
+  }
   subdirs <- if(split[1L]) by2char(hash, split[1L], "start")
   c(subdirs, if(split[2L]) by2char(seed, split[2L], "end"))
 }
