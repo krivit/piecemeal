@@ -10,10 +10,11 @@ NULL
 #'   read-only and returns NULL if the database doesn't exist. If "write", creates the 
 #'   database and table if they don't exist and opens with write permissions.
 #' @param autoclose automatically close the connection when the calling function exits; requires the calling function to call all subsequent [on.exit()]s with `add = TRUE`.
+#' @param autolock automatically acquire the lock to be released when the calling function exits; requires the calling function to call all subsequent [on.exit()]s with `add = TRUE`.
 #' @return A database connection, or NULL if mode="read" and database doesn't exist
 #' @keywords internal
 #' @noRd
-db_connect <- function(outdir, mode = c("read", "write"), autoclose = TRUE) {
+db_connect <- function(outdir, mode = c("read", "write"), autoclose = TRUE, autolock = TRUE) {
   mode <- match.arg(mode)
   
   db_path <- file.path(outdir, "consolidated.db")
@@ -29,9 +30,28 @@ db_connect <- function(outdir, mode = c("read", "write"), autoclose = TRUE) {
     con <- DBI::dbConnect(RSQLite::SQLite(), db_path, flags = RSQLite::SQLITE_RO)
     dbExecute(con, "PRAGMA busy_timeout = 3600000;")
   } else {
+    if (autolock) {
+      lock_path <- file.path(outdir, ".consolidated.lock")
+      lock <- filelock::lock(lock_path, timeout = 0)
+      if (is.null(lock)) {
+        cli_alert_info("Another process is writing to the database.")
+        return(NULL)
+      }
+    }
+
     # Open read-write, create if needed (default behavior)
     con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
     dbExecute(con, "PRAGMA busy_timeout = 3600000;")
+    if (autolock) {
+      # This prevents lock from being released due to going out of
+      # scope unless con also goes out of scope.
+      attr(con, "lock") <- lock
+      do.call(on.exit, list(substitute({
+        filelock::unlock(attr(con, "lock"))
+        unlink(lock_path)
+      }), add = TRUE),
+      envir = parent.frame())
+    }
 
     # Create table if it doesn't exist (only for write mode)
     if (!DBI::dbExistsTable(con, "results")) {
@@ -64,6 +84,18 @@ db_store_result <- function(con, filename, rds_data, mtime) {
   DBI::dbExecute(con, "
     INSERT OR REPLACE INTO results (filename, data, mtime) VALUES (?, ?, ?)
   ", params = list(filename, list(rds_data), mtime))
+}
+
+#' Remove a result from the consolidated database
+#' @param con Database connection
+#' @param filename One or more filenames (basenames) of the results
+#' @return Number of rows deleted.
+#' @keywords internal
+#' @noRd
+db_delete_result <- function(con, filename) {
+  DBI::dbExecute(con, "
+    DELETE FROM results WHERE filename = ?
+  ", params = list(filename))
 }
 
 #' Retrieve a result from the consolidated database
@@ -134,20 +166,6 @@ db_has_result <- function(con, filename) {
 consolidate_results <- function(outdir) {
   dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 
-  # Use a lock file to ensure only one process consolidates at a time
-  lock_path <- file.path(outdir, ".consolidate.lock")
-
-  lock <- filelock::lock(lock_path, timeout = 0)
-  if (is.null(lock)) {
-    cli_alert_info("Another process is consolidating. Skipping.")
-    return(0)
-  }
-
-  on.exit({
-    filelock::unlock(lock)
-    unlink(lock_path)
-  })
-
   # Get all .rds files (not .rds.lock or .rds.tmp)
   cli_progress_message("Finding unconsolidated runs")
   files_to_consolidate <- list.files(outdir, pattern = "\\.rds$", full.names = TRUE, recursive = TRUE)
@@ -156,9 +174,10 @@ consolidate_results <- function(outdir) {
   if (length(files_to_consolidate) == 0) return(0)
 
   con <- db_connect(outdir, mode = "write")
+  if (is.null(con)) cli_alert_info("Skipping consolidation.")
 
   count <- 0
-  # Note: Future optimization could batch multiple inserts in a single transaction
+  # Note: Future optimisation could batch multiple inserts in a single transaction
   # for improved performance when consolidating many files
   
   for (i in cli_progress_along(files_to_consolidate, "Consolidating files")) {
