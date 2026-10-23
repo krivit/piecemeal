@@ -75,6 +75,7 @@ sim$result_df()
     \item \href{#method-Piecemeal-result_df}{\code{Piecemeal$result_df()}}
     \item \href{#method-Piecemeal-reset}{\code{Piecemeal$reset()}}
     \item \href{#method-Piecemeal-clean}{\code{Piecemeal$clean()}}
+    \item \href{#method-Piecemeal-forget}{\code{Piecemeal$forget()}}
     \item \href{#method-Piecemeal-erred}{\code{Piecemeal$erred()}}
     \item \href{#method-Piecemeal-debug}{\code{Piecemeal$debug()}}
     \item \href{#method-Piecemeal-consolidate}{\code{Piecemeal$consolidate()}}
@@ -452,12 +453,42 @@ Runs that erred are filtered out.
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
-      \item{\code{which}}{a function of a result list (see \code{Piecemeal$result_list()}) returning \code{TRUE} if the result file is to be deleted and \code{FALSE} otherwise.}
+      \item{\code{which}}{deprecated.}
     }
     \if{html}{\out{</div>}}
   }
   \subsection{Details}{
     If \code{Piecemeal$options(error = "auto")} (the default) is set, reinitialising the \code{Piecemeal} object or changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run \code{clean()} at the start of the next run.
+  }
+}
+
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-Piecemeal-forget"></a>}}
+\if{latex}{\out{\hypertarget{method-Piecemeal-forget}{}}}
+\subsection{\code{Piecemeal$forget()}}{
+  Delete the result files \emph{and} consolidated results that match a predicate or by hash and seed.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{Piecemeal$forget(.p, ...)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{.p, ...}}{a specification of which results to forget. The following formats are supported: \describe{
+\item{a function that returns a logical}{\code{.p(treatment = treatment, seed = seed, ...)} will be called for each treatment-seed combination; results of configurations for which \code{TRUE} is returned will be forgotten.}
+\item{a character vector of result file names}{Used directly.}
+\item{a character vector alternating hashes and seeds}{These will be concatenated two at a time.}
+\item{a character vector of hashes}{All seeds for this hash.}
+}}
+    }
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Details}{
+    If a list of file names is provided, their directory names will be stripped and recomputed, so the corresponding runs will be found whether they are in the database or in the file system.
+  }
+  \subsection{Returns}{
+    The total number of configurations actually deleted invisibly.
   }
 }
 
