@@ -198,7 +198,11 @@ Piecemeal <- R6Class("Piecemeal",
       cost <- window / recent
       structure(list(window = window, recent = recent, cost = cost, rate = 1/cost, left = left * cost, eta = Sys.time() + left * cost, inprog = inprog),
                 class = "Piecemeal_eta", outdir = private$.outdir)
-    }
+    },
+    .all_configs = function()
+      expand.list(seed = private$.seeds,
+                  treatment = if(length(private$.treatments)) private$.treatments
+                              else list(add_hash(list())))
   ),
 
   public = list(
@@ -396,9 +400,7 @@ Piecemeal <- R6Class("Piecemeal",
     #' @description List the configurations still to be run.
     #' @return A list of lists with arguments to the worker functions and worker-specific configuration settings (particularly with elements `$seed` with the random seed and `$treatment` with the arguments to the worker); also an attribute `"done"` giving the number of configurations skipped because they are already done.
     todo = function() {
-      configs <- expand.list(seed = private$.seeds,
-                             treatment = if(length(private$.treatments)) private$.treatments
-                                         else list(add_hash(list())))
+      configs <- private$.all_configs()
       fn <- map_chr(configs, config_fn)
       done <- fn %in% basename(private$.done())
       configs <- configs[!done]
