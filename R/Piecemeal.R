@@ -489,10 +489,13 @@ Piecemeal <- R6Class("Piecemeal",
     },
 
     #' @description Delete the result files for which the worker function produced an error and/or which were somehow corrupted, or based on some other predicate.
-    #' @param which a function of a result list (see `Piecemeal$result_list()`) returning `TRUE` if the result file is to be deleted and `FALSE` otherwise.
+    #' @param which deprecated.
     #' @details If `Piecemeal$options(error = "auto")` (the default) is set, reinitialising the `Piecemeal` object or changing some configuration settings, including the worker function, the setup code, and the exported variables, will automatically set a flag to run `clean()` at the start of the next run.
     clean = function(which = function(res) !res$OK) {
-      done <- private$.done()
+      if (!missing(which))
+        cli_warn("Argument {.arg which} has been deprecated; to delete based on a predicate, use {.code Piecemeal$forget()}.")
+
+      done <- private$.done(consolidated = FALSE)
       del <- done |> map_lgl(\(fn) which(safe_readRDS(fn)), .progress = "Loading and filtering")
       private$.toclean <- FALSE
       if(any(del)){
