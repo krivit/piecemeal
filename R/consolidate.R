@@ -6,15 +6,13 @@ NULL
 
 #' Connect to the consolidated database
 #' @param outdir The output directory
-#' @param mode Either "read" or "write". If "read" (default), opens the database as 
-#'   read-only and returns NULL if the database doesn't exist. If "write", creates the 
-#'   database and table if they don't exist and opens with write permissions.
+#' @param mode Either "read", "write", or "edit". If "read" (default), opens the database as  read-only and returns NULL if the database doesn't exist. If "write", creates the  database and table if they don't exist and opens with write permissions. If "edit", as "write", but does not create if it doesn't exist.
 #' @param autoclose automatically close the connection when the calling function exits; requires the calling function to call all subsequent [on.exit()]s with `add = TRUE`.
 #' @param autolock automatically acquire the lock to be released when the calling function exits; requires the calling function to call all subsequent [on.exit()]s with `add = TRUE`.
-#' @return A database connection, or NULL if mode="read" and database doesn't exist
+#' @return A database connection, or NULL if mode="read" and database doesn't exist or mode="write" or "edit" and database is locked. If mode="edit" and the database does not exist, `FALSE` is returned.
 #' @keywords internal
 #' @noRd
-db_connect <- function(outdir, mode = c("read", "write"), autoclose = TRUE, autolock = TRUE) {
+db_connect <- function(outdir, mode = c("read", "write", "edit"), autoclose = TRUE, autolock = TRUE) {
   mode <- match.arg(mode)
   
   db_path <- file.path(outdir, "consolidated.db")
@@ -30,13 +28,12 @@ db_connect <- function(outdir, mode = c("read", "write"), autoclose = TRUE, auto
     con <- DBI::dbConnect(RSQLite::SQLite(), db_path, flags = RSQLite::SQLITE_RO)
     dbExecute(con, "PRAGMA busy_timeout = 3600000;")
   } else {
+    if (mode == "edit" && !file.exists(db_path)) return(FALSE)
+
     if (autolock) {
       lock_path <- file.path(outdir, ".consolidated.lock")
       lock <- filelock::lock(lock_path, timeout = 0)
-      if (is.null(lock)) {
-        cli_alert_info("Another process is writing to the database.")
-        return(NULL)
-      }
+      if (is.null(lock)) return(NULL)
     }
 
     # Open read-write, create if needed (default behavior)
@@ -171,10 +168,17 @@ consolidate_results <- function(outdir) {
   files_to_consolidate <- list.files(outdir, pattern = "\\.rds$", full.names = TRUE, recursive = TRUE)
   cli_progress_done()
 
-  if (length(files_to_consolidate) == 0) return(0)
+  if (length(files_to_consolidate) == 0) {
+    cli_alert_info("Nothing to consolidate.")
+    return(0)
+  }
 
   con <- db_connect(outdir, mode = "write")
-  if (is.null(con)) cli_alert_info("Skipping consolidation.")
+  if (is.null(con)) {
+    cli_alert_info("Another process is writing to the result database.")
+    cli_alert_warning("Skipping consolidation.")
+    return(0)
+  }
 
   count <- 0
   # Note: Future optimisation could batch multiple inserts in a single transaction
@@ -198,12 +202,7 @@ consolidate_results <- function(outdir) {
       unlink(file_path)
       count <- count + 1
       
-      # Remove empty directories and any parents; stop as soon as a
-      # non-empty directory (resulting in file.remove() returning
-      # FALSE) or outdir is encountered.
-      dir_path <- dirname(file_path)
-      while (dir_path != outdir && suppressWarnings(file.remove(dir_path)))
-        dir_path <- dirname(dir_path)
+      clean_empty_dirs(outdir, dirname(file_path))
     }
   }
 
@@ -283,4 +282,18 @@ get_file_mtimes <- function(outdir, files) {
   
   # Convert to POSIXct for compatibility with existing code
   as.POSIXct(mtimes, origin = "1970-01-01", tz = "UTC")
+}
+
+#' Remove empty directories and any parents
+#'
+#' Stop as soon as a non-empty directory (resulting in [file.remove()]
+#' returning `FALSE`) or `outdir` is encountered.
+#'
+#' @param outdir the top-level simulation result directory.
+#' @param dir_path first empty directory to attempt to delete.
+#'
+#' @noRd
+clean_empty_dirs <- function(outdir, dir_path) {
+  while (!identical(normalizePath(dir_path), normalizePath(outdir)) && suppressWarnings(file.remove(dir_path)))
+    dir_path <- dirname(dir_path)
 }
