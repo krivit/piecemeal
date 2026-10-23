@@ -736,6 +736,9 @@ print.Piecemeal_status <- function(x, ...) {
   invisible(x)
 }
 
+# Replacement for base::unlink() that doesn't expand wildcards by default.
+unlink <- function(x, recursive = FALSE, force = FALSE, expand = FALSE) base::unlink(x, recursive, force, expand)
+
 # NB: toString() and as.character() err, deparse() only returns
 # "<environment>", and environmentName() only works for namespaces.
 envname <- function(e) {
