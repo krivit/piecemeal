@@ -117,27 +117,27 @@ Piecemeal <- R6Class("Piecemeal",
         NULL
       }
     },
-    .done = function() {
-      # Get individual .rds files
-      cli_progress_message("Finding individual runs")
-      files <- list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE)
-      cli_progress_done()
-
-      # Get files from consolidated database
-      con <- db_connect(private$.outdir)
-      if (!is.null(con)) {
-        cli_progress_message("Finding consolidated runs")
-        # Interrupted consolidation may result in an rds file inserted
-        # into the database but not deleted, so make sure it's only
-        # listed once.
-        db_files <- db_list_filenames(con) |> setdiff(basename(files))
-        # Return full paths for consistency (use a virtual path prefix)
-        db_files <- file.path(private$.outdir, ".consolidated", db_files)
-        files <- c(files, db_files)
+    # consolidated: TRUE -> only consolidated, FALSE -> only individual, NA -> both.
+    .done = function(consolidated = NA) {
+      if (!isTRUE(consolidated)) {
+        # Get individual .rds files
+        cli_progress_message("Finding individual runs")
+        files <- list.files(private$.outdir, ".*\\.rds$", full.names = TRUE, recursive = TRUE)
         cli_progress_done()
-      }
+      } else files <- character(0)
 
-      files
+      if (!isFALSE(consolidated) && !is.null(con <- db_connect(private$.outdir))) {
+          cli_progress_message("Finding consolidated runs")
+          # Interrupted consolidation may result in an rds file inserted
+          # into the database but not deleted, so make sure it's only
+          # listed once.
+          db_files <- db_list_filenames(con) |> setdiff(basename(files))
+          # Return full paths for consistency (use a virtual path prefix)
+          db_files <- file.path(private$.outdir, ".consolidated", db_files)
+          cli_progress_done()
+      } else db_files <- character(0)
+
+      c(files, db_files)
     },
     .doing = function() {
       cli_progress_message("Finding running workers")
