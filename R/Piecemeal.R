@@ -503,6 +503,62 @@ Piecemeal <- R6Class("Piecemeal",
       invisible(self)
     },
 
+    #' @description Delete the result files *and* consolidated results that match a predicate or by hash and seed.
+    #' @param .p,... a specification of which results to forget. The following formats are supported: \describe{
+    #' \item{a function that returns a logical}{`.p(treatment = treatment, seed = seed, ...)` will be called for each treatment-seed combination; results of configurations for which `TRUE` is returned will be forgotten.}
+    #' \item{a character vector of result file names}{Used directly.}
+    #' \item{a character vector alternating hashes and seeds}{These will be concatenated two at a time.}
+    #' \item{a character vector of hashes}{All seeds for this hash.}
+    #' }
+    #' @details If a list of file names is provided, their directory names will be stripped and recomputed, so the corresponding runs will be found whether they are in the database or in the file system.
+    #' @return The total number of configurations actually deleted invisibly.
+    forget = function(.p, ...) {
+      # Use a lock file to ensure only one process consolidates at a time
+      con <- db_connect(private$.outdir, "edit")
+
+      if (is.null(con)) {
+        cli_abort("Another process is potentially writing to the result database.")
+      }
+
+      if (is.character(.p)) {
+        if (length(.p) &&
+            length(.p) %% 2L == 0L &&
+            !is.na(suppressWarnings(as.integer(.p[2])))) {
+          fns <- paste(config[seq_along(.p) %% 2L == 1],
+                       config[seq_along(.p) %% 2L == 0],
+                       "rds", sep = ".")
+        } else if (endsWith(.p[1], ".rds")) {
+          fns <- basename(.p)
+        } else {
+          fns <- paste0(outer(.p, private$.seeds, paste, sep = "."), ".rds")
+        }
+      } else if (is.function(.p)) {
+        configs <- private$.all_configs()
+        todel <- map(configs, c, list(...)) |> map_lgl(do.call, what = .p, ..., .progress = "Filtering configurations")
+        fns <- configs[todel] |> map_chr(config_fn)
+      } else cli_abort("Invalid configuration specification.")
+
+      cli_inform("Attempting to forget {length(fns)} configurations.")
+
+      cli_progress_message("Deleting from the file system")
+      fspaths <- map(fns, config_subdir, split = private$.split) |>
+        map2(private$.outdir, .y = _, c) |>
+        map2(fns, c) |> map(as.list) |> map_chr(do.call, what = file.path)
+      statuses <- suppressWarnings(file.remove(fspaths))
+      for (fspath in dirname(fspaths[statuses])) clean_empty_dirs(private$.outdir, fspath)
+      cli_progress_done()
+      cli_alert_success("{sum(statuses)} individual configurations found and forgotten.")
+
+      if (!isFALSE(con)) {
+        cli_progress_message("Deleting from the consolidated database")
+        ndeleted <- db_delete_result(con, fns)
+        cli_progress_done()
+        cli_alert_success("{ndeleted} consolidated configurations found and forgotten.")
+      } else ndeleted <- 0
+
+      invisible(sum(statuses) + ndeleted)
+    },
+
     #' @description List the configurations for which the worker function failed.
     #' @param n return up to this many errors.
     erred = function(n = Inf) {
